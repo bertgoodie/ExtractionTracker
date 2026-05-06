@@ -321,8 +321,8 @@ select.fi option{background:#1a2420;}
 /* ============================================================
    !! CONFIGURE BEFORE DEPLOYING !!
 ============================================================ */
-const FACILITY_CODE = 'Lake415';  // ← change this to whatever you want
-const FACILITY_ID   = 'Twisted Growers';  // ← short ID for your operation
+const FACILITY_CODE = 'Lake415';
+const FACILITY_ID   = 'twisted_growers';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyAyjFEDxjsl26ryUmFF41e0VLs5Vhpx2EU",
@@ -1825,12 +1825,18 @@ function submitCode(){
 document.getElementById('auth-code').addEventListener('keydown',e=>{if(e.key==='Enter')submitCode();});
 
 function bootApp(){
-  settings=JSON.parse(localStorage.getItem('hc_settings')||'{}');
+  try{
+    settings=JSON.parse(localStorage.getItem('hc_settings')||'{}');
+  }catch(e){settings={};}
   resetDraft();
   goTo('dashboard');
-  // Enable offline persistence then start listener
-  db.enablePersistence({synchronizeTabs:true}).catch(()=>{})
-    .finally(()=>startListener());
+  // Start Firestore listener — skip persistence to avoid browser compatibility issues
+  try{
+    startListener();
+  }catch(e){
+    console.error('Firestore listener failed:',e);
+    toast('⚠ Could not connect to database — check connection');
+  }
 }
 
 /* ============================================================
