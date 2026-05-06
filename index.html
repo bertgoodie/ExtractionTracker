@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HC Extract · METRC Batch Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Barcode scanner -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+/* ── Auth screen ── */
+#auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;align-items:center;justify-content:center;padding:24px;flex-direction:column;gap:0;}
+.auth-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:28px 24px;width:100%;max-width:340px;}
+.auth-logo{width:44px;height:44px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+.auth-logo svg{width:24px;height:24px;fill:#0d1410;}
+.auth-title{font-size:17px;font-weight:500;text-align:center;margin-bottom:4px;}
+.auth-sub{font-size:12px;color:var(--text2);text-align:center;margin-bottom:20px;font-family:var(--mono);}
+#auth-error{font-size:12px;color:var(--red);text-align:center;min-height:18px;margin-bottom:8px;font-family:var(--mono);}
+.device-id-strip{margin-top:16px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);display:flex;justify-content:space-between;align-items:center;}
+.device-id-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;}
+.device-id-val{font-family:var(--mono);font-size:10px;color:var(--text2);}
+
+:root {
+  --bg:#0d1410;--bg2:#141c16;--bg3:#1a2420;--bg4:#22302a;
+  --border:rgba(76,175,80,0.18);--border2:rgba(76,175,80,0.38);
+  --accent:#4caf50;--adim:rgba(76,175,80,0.13);
+  --text:#e0ede0;--text2:#8aaa8a;--text3:#4d6e4d;
+  --amber:#ffb74d;--red:#ef5350;--blue:#64b5f6;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --r:8px;--rl:12px;--nav:62px;--hdr:50px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:var(--sans);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased;}
+#app{height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* Header */
+#hdr{height:var(--hdr);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0;z-index:20;}
+#hdr-back{width:32px;height:32px;background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:16px;cursor:pointer;display:none;align-items:center;justify-content:center;}
+#hdr-back.vis{display:flex;}
+#hdr-title{flex:1;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.logo{width:26px;height:26px;background:var(--accent);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo svg{width:14px;height:14px;fill:#0d1410;}
+
+/* Screens */
+#screens{flex:1;overflow:hidden;position:relative;}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:none;padding:12px 12px calc(var(--nav)+12px);}
+.screen.active{display:block;}
+
+/* Bottom nav */
+#bnav{height:var(--nav);background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-shrink:0;}
+.ntab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--text3);transition:color 0.15s;}
+.ntab.act{color:var(--accent);}
+.ntab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;}
+.ntab span{font-size:10px;letter-spacing:0.03em;}
+.ntab.fab-tab{flex:0 0 70px;}
+.fab{width:50px;height:50px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 5px var(--bg2);transition:transform 0.15s;}
+.fab:active{transform:scale(0.91);}
+.fab svg{width:22px;height:22px;stroke:#0d1410;fill:none;stroke-width:2.2;}
+
+/* Type */
+.mono{font-family:var(--mono);}
+.sec{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 8px;}
+.sec:first-child{margin-top:0;}
+.accent{color:var(--accent);}
+
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s;}
+.card:active{border-color:var(--border2);}
+.card.nc{cursor:default;}
+.card-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.card-title{font-size:13.5px;font-weight:500;}
+.card-sub{font-size:11.5px;color:var(--text2);margin-top:2px;font-family:var(--mono);}
+
+/* Badges */
+.badge{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:100px;white-space:nowrap;flex-shrink:0;}
+.bg{background:rgba(76,175,80,0.14);color:#81c784;border:1px solid rgba(76,175,80,0.28);}
+.ba{background:rgba(255,183,77,0.13);color:#ffb74d;border:1px solid rgba(255,183,77,0.28);}
+.br{background:rgba(239,83,80,0.12);color:#ef5350;border:1px solid rgba(239,83,80,0.28);}
+.bx{background:rgba(255,255,255,0.05);color:var(--text2);border:1px solid var(--border);}
+
+/* Stats grid */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.scard{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;}
+.slabel{font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.sval{font-family:var(--mono);font-size:21px;font-weight:500;line-height:1;}
+.sunit{font-size:12px;color:var(--text2);margin-left:2px;}
+.sval.sm{font-size:16px;}
+
+/* Section strip */
+.dash-strip{display:flex;align-items:center;gap:8px;margin:10px 0 6px;}
+.ds-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap;}
+.ds-line{flex:1;height:1px;background:var(--border);}
+
+/* Yield bar */
+.ybar{height:3px;background:var(--bg4);border-radius:2px;margin-top:8px;overflow:hidden;}
+.yfill{height:100%;border-radius:2px;transition:width 0.4s;}
+
+/* Yield display */
+.ydisplay{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);padding:16px;text-align:center;margin-bottom:10px;}
+.ypct{font-family:var(--mono);font-size:44px;font-weight:500;line-height:1;letter-spacing:-0.02em;}
+.ysub{font-size:12px;color:var(--text2);margin-top:4px;}
+.yform{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:6px;}
+
+/* Step dots */
+.steps{display:flex;align-items:center;margin-bottom:14px;}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--bg4);flex-shrink:0;transition:all 0.2s;}
+.sdot.act{background:var(--accent);width:18px;border-radius:4px;}
+.sdot.done{background:#2e7d32;}
+.sline{flex:1;height:1px;background:var(--border);}
+
+/* Form */
+.fg{margin-bottom:12px;}
+.flabel{display:block;font-family:var(--mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2);margin-bottom:5px;}
+.req{color:var(--accent);}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:15px;padding:10px 12px;outline:none;transition:border-color 0.15s;-webkit-appearance:none;appearance:none;}
+.fi:focus{border-color:var(--accent);}
+.fi::placeholder{color:var(--text3);}
+.fi.mono{font-family:var(--mono);font-size:12.5px;letter-spacing:0.04em;}
+.fhint{font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono);}
+.row2{display:flex;gap:8px;}
+.row2 .fg{flex:1;}
+select.fi{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234d6e4d'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer;}
+select.fi option{background:#1a2420;}
+
+/* Scan group */
+.sg{display:flex;gap:8px;}
+.sg .fi{flex:1;}
+.scanbtn{flex-shrink:0;width:42px;height:42px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--accent);}
+.scanbtn:active{background:var(--adim);}
+.scanbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;}
+
+/* Buttons */
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:13px 16px;border-radius:var(--r);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;border:none;transition:transform 0.12s,opacity 0.12s;}
+.btn:active{transform:scale(0.97);}
+.btn:disabled{opacity:0.38;pointer-events:none;}
+.bp{background:var(--accent);color:#0d1410;}
+.bs{background:var(--bg3);color:var(--text);border:1px solid var(--border2);}
+.bg2{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.bdr{background:rgba(239,83,80,0.1);color:var(--red);border:1px solid rgba(239,83,80,0.28);}
+.btns{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+
+/* Route cards */
+.rcard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.15s;margin-bottom:7px;}
+.rcard:active{transform:scale(0.99);}
+.rcard.sel{border-color:var(--accent);background:var(--adim);}
+.ricon{width:38px;height:38px;background:var(--bg3);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.rcard.sel .ricon{background:rgba(76,175,80,0.18);}
+.rinfo{flex:1;min-width:0;}
+.rtitle{font-size:13.5px;font-weight:500;}
+.rdesc{font-size:11px;color:var(--text2);margin-top:1px;}
+.rarrow{color:var(--text3);font-size:17px;flex-shrink:0;}
+.rcard.sel .rarrow{color:var(--accent);}
+
+/* Stage divider */
+.sdiv{display:flex;align-items:center;gap:8px;margin:10px 0 6px;}
+.sdiv-l{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap;}
+.sdiv-line{flex:1;height:1px;background:var(--border);}
+
+/* Package list */
+.plist{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;}
+.pitem{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;display:flex;align-items:center;gap:10px;}
+.ptag{font-family:var(--mono);font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pwt{font-family:var(--mono);font-size:13px;font-weight:500;white-space:nowrap;}
+.prm{color:var(--text3);cursor:pointer;font-size:15px;padding:4px;flex-shrink:0;}
+.prm:active{color:var(--red);}
+
+/* Parent batch picker */
+.pbatch{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:6px;transition:all 0.15s;}
+.pbatch.sel{border-color:var(--accent);background:var(--adim);}
+.pcheck{width:20px;height:20px;border:1.5px solid var(--border2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all 0.15s;}
+.pbatch.sel .pcheck{background:var(--accent);border-color:var(--accent);color:#0d1410;}
+.pbid{font-family:var(--mono);font-size:12px;font-weight:500;}
+.pbdet{font-size:11px;color:var(--text2);margin-top:1px;}
+
+/* Summary table */
+.srow{display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:8px;}
+.srow:last-child{border-bottom:none;}
+.skey{font-family:var(--mono);font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;}
+.sval{font-family:var(--mono);font-size:12px;text-align:right;word-break:break-all;max-width:65%;}
+
+/* Misc */
+.div{height:1px;background:var(--border);margin:12px 0;}
+.addbtn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:transparent;border:1px dashed var(--border2);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-top:6px;}
+.addbtn:active{background:var(--adim);border-color:var(--accent);color:var(--accent);}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;gap:7px;}
+.eicon{font-size:32px;opacity:0.35;}
+.etitle{font-size:14px;font-weight:500;color:var(--text2);}
+.esub{font-size:12px;color:var(--text3);}
+.total-strip{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+
+/* Toast */
+#toast{position:fixed;bottom:calc(var(--nav)+10px);left:50%;transform:translateX(-50%) translateY(16px);background:var(--bg4);border:1px solid var(--border2);color:var(--text);font-size:12.5px;padding:9px 18px;border-radius:100px;white-space:nowrap;opacity:0;transition:all 0.22s;pointer-events:none;z-index:999;font-family:var(--mono);letter-spacing:0.04em;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Confirm modal */
+#confirm-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+#confirm-modal.vis{display:flex;}
+.confirm-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rl) var(--rl) var(--r) var(--r);padding:20px;width:100%;max-width:400px;}
+#confirm-msg{font-size:15px;margin-bottom:16px;text-align:center;line-height:1.5;}
+.confirm-btns{display:flex;gap:10px;}
+.confirm-btns .btn{flex:1;padding:12px;}
+
+/* Scanner overlay */
+#scan-ov{position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:600;display:none;flex-direction:column;align-items:center;}
+#scan-ov.act{display:flex;}
+#scan-hdr{width:100%;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+#scan-label{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:0.08em;}
+#scan-x{width:30px;height:30px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+#scan-body{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:16px;}
+#reader{width:100%;max-width:340px;border-radius:var(--r);overflow:hidden;}
+#scan-hint{font-family:var(--mono);font-size:10px;color:var(--text2);text-align:center;letter-spacing:0.08em;}
+
+/* Thresh cards */
+.thresh-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;}
+.thresh-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.thresh-inputs{display:flex;gap:10px;}
+.thresh-inputs .fg{flex:1;margin-bottom:0;}
+.thresh-inputs .fi{font-family:var(--mono);font-size:20px;text-align:center;padding:8px;}
+
+/* View-all inline button */
+.view-all-btn{font-family:var(--mono);font-size:9px;color:var(--accent);background:none;border:none;cursor:pointer;letter-spacing:0.06em;white-space:nowrap;padding:0;}
+
+/* Active batch card */
+.acard{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:12px;margin-bottom:8px;}
+.acard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.acard-id{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);}
+.acard-tag{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.acard-wts{display:flex;gap:12px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);margin-bottom:8px;}
+.awt-item{flex:1;text-align:center;}
+.awt-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;}
+.awt-val{font-family:var(--mono);font-size:16px;font-weight:500;margin-top:2px;}
+.awt-val.yield{font-size:13px;}
+.awt-sep{color:var(--text3);font-size:18px;align-self:center;}
+.acard-actions{display:flex;gap:8px;}
+.acard-actions .btn{flex:1;padding:10px 8px;font-size:12.5px;}
+.loss-pill{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:100px;background:rgba(255,183,77,0.12);color:var(--amber);border:1px solid rgba(255,183,77,0.25);}
+
+/* Complete notification overlay */
+#complete-notice{position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:800;display:none;align-items:center;justify-content:center;padding:24px;}
+#complete-notice.vis{display:flex;}
+.cn-box{background:var(--bg3);border:1px solid var(--accent);border-radius:var(--rl);padding:24px;max-width:360px;width:100%;text-align:center;}
+.cn-icon{font-size:36px;margin-bottom:12px;}
+.cn-title{font-size:17px;font-weight:500;margin-bottom:8px;}
+.cn-msg{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:8px;}
+.cn-bid{font-family:var(--mono);font-size:13px;color:var(--accent);padding:8px 12px;background:var(--adim);border-radius:var(--r);margin-bottom:16px;word-break:break-all;}
+.cn-tag{font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:16px;}
+
+/* Edit form section */
+.edit-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:10px;}
+.edit-section-title{font-family:var(--mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+.loss-track{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.lt-label{font-family:var(--mono);font-size:10px;color:var(--text2);}
+.lt-val{font-family:var(--mono);font-size:14px;font-weight:500;}
+
+/* Weight adjustment modal */
+#wadj-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+#wadj-modal.vis{display:flex;}
+.wadj-type-active{background:var(--adim)!important;border-color:var(--accent)!important;color:var(--accent)!important;}
+
+/* Weight history */
+.whist-item{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px;}
+.whist-item:last-child{border-bottom:none;}
+.whist-delta{font-family:var(--mono);font-size:13px;font-weight:500;flex-shrink:0;min-width:60px;}
+.whist-add{color:var(--accent);}
+.whist-sub{color:var(--amber);}
+.whist-info{flex:1;min-width:0;}
+.whist-reason{font-size:13px;color:var(--text);}
+.whist-meta{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;}
+
+/* Search overlay */
+#search-ov{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
+#search-ov.act{display:flex;}
+#search-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg2);}
+#search-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:14px;padding:9px 12px;outline:none;}
+#search-input:focus{border-color:var(--accent);}
+#search-input::placeholder{color:var(--text3);font-family:var(--sans);}
+#search-results{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;}
+.search-empty{text-align:center;padding:40px 20px;color:var(--text3);font-family:var(--mono);font-size:12px;letter-spacing:0.06em;}
+.search-section-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin:10px 0 6px;}
+
+/* Search icon btn */
+.hdr-icon{width:32px;height:32px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.hdr-icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px;}
+
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── Auth gate ── -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
+    <div class="auth-title">HC Extract</div>
+    <div class="auth-sub">METRC BATCH BUILDER</div>
+    <div id="auth-error"></div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Facility Code</label>
+      <input id="auth-code" class="fi" type="password" placeholder="Enter code…" autocomplete="off" autocorrect="off">
+    </div>
+    <button class="btn bp" onclick="submitCode()">Enter</button>
+    <div class="device-id-strip">
+      <span class="device-id-label">DEVICE ID</span>
+      <span class="device-id-val" id="auth-device-id">—</span>
+    </div>
+  </div>
+</div>
+
+
+</div><!-- #app -->
+
+<script>
+/* ============================================================
+   !! CONFIGURE BEFORE DEPLOYING !!
+============================================================ */
+const FACILITY_CODE = 'Lake415';  // ← change this to whatever you want
+const FACILITY_ID   = 'Twisted Growers';  // ← short ID for your operation
+
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAyjFEDxjsl26ryUmFF41e0VLs5Vhpx2EU",
+  authDomain:        "extractiontracker.firebaseapp.com",
+  projectId:         "extractiontracker",
+  storageBucket:     "extractiontracker.firebasestorage.app",
+  messagingSenderId: "735518638661",
+  appId:             "1:735518638661:web:cf646ede8943d4baffd92c"
+};
+
+/* ============================================================
+   FIREBASE INIT
+============================================================ */
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
+
+const ROUTES = {
+  'crude':           {label:'Crude Oil',           code:'CRUDE', stage:1, icon:'🛢',  desc:'Trim  ·  inferred from product'},
+  'live-badder':     {label:'Live Badder',          code:'LBDR',  stage:1, icon:'🍯',  desc:'Whole Plant Fresh Frozen  ·  inferred'},
+  'cured-badder':    {label:'Cured Badder',         code:'CBDR',  stage:1, icon:'🍯',  desc:'Cured Flower  ·  inferred from product'},
+  'diamonds':        {label:'Diamonds / THCa',      code:'DMND',  stage:2, icon:'💎',  desc:'Crude → Diamonds  ·  HTE stays on crude tag'},
+  'lr-vape':         {label:'Live Resin Vape',      code:'LRV',   stage:2, icon:'🌿',  desc:'Live Badder → Live Resin Vape Cartridges'},
+  'cr-vape':         {label:'Cured Resin Vape',     code:'CRV',   stage:2, icon:'🌾',  desc:'Crude / Cured Badder → Cured Resin Vape Cartridges'},
+  'liquid-diamonds': {label:'Liquid Diamonds',      code:'LQDM',  stage:3, icon:'💧',  desc:'Diamonds → Liquid Diamonds'},
+  'ld-vape':         {label:'Liquid Diamond Vape',  code:'LDV',   stage:3, icon:'💨',  desc:'Liquid Diamonds → Vape Cartridges  ·  multiple flavors'},
+};
+
+const VAPE_ROUTES = ['ld-vape','lr-vape','cr-vape'];
+
+const DEFAULT_THRESH = {
+  'crude':           {hi:10,  mid:6},
+  'live-badder':     {hi:14,  mid:9},
+  'cured-badder':    {hi:12,  mid:8},
+  'diamonds':        {hi:55,  mid:35},
+  'liquid-diamonds': {hi:82,  mid:65},
+  'lr-vape':         {hi:80,  mid:60},
+  'cr-vape':         {hi:80,  mid:60},
+  'ld-vape':         {hi:80,  mid:60},
+};
+
+const VALID_PARENTS = {
+  'diamonds':        ['crude'],
+  'lr-vape':         ['live-badder'],
+  'cr-vape':         ['crude','cured-badder'],
+  'liquid-diamonds': ['diamonds'],
+  'ld-vape':         ['liquid-diamonds'],
+};
+
+const DOWNSTREAM_MAP = {
+  'crude':           'diamonds',
+  'live-badder':     'lr-vape',
+  'cured-badder':    'cr-vape',
+  'diamonds':        'liquid-diamonds',
+  'liquid-diamonds': 'ld-vape',
+};
+
+const BIOMASS = [
+  {v:'',           l:'Select biomass type…'},
+  {v:'trim',       l:'Trim'},
+  {v:'cured-flower',l:'Cured Flower'},
+  {v:'fresh-frozen',l:'Whole Plant Fresh Frozen'},
+];
+
+/* Only live-badder is fully inferred — crude and cured-badder require selection */
+const BIOMASS_INFER = {
+  'live-badder': {v:'fresh-frozen', l:'Whole Plant Fresh Frozen'},
+};
+
+/* Per-route biomass options for routes that need selection */
+const BIOMASS_OPTIONS = {
+  'crude': [
+    {v:'fresh-frozen-flower', l:'Fresh Frozen Flower'},
+    {v:'cured-flower',        l:'Cured Flower'},
+    {v:'trim',                l:'Trim'},
+  ],
+  'cured-badder': [
+    {v:'cured-flower', l:'Cured Flower'},
+    {v:'trim',         l:'Trim'},
+  ],
+};
+
+/* ============================================================
+   STATE
+============================================================ */
+let batches  = JSON.parse(localStorage.getItem('hc_batches')  || '[]');
+let settings = JSON.parse(localStorage.getItem('hc_settings') || '{}');
+let curScreen = 'dashboard';
+let wStep = 1;
+let draft = {};
+let scanCB = null;
+let qrCode = null;
+let confirmCB = null;
+
+function resetDraft() {
+  draft = {
+    route:null, strain:'', strainCode:'', biomassType:'',
+    date:todayStr(), tech:localStorage.getItem('hc_tech')||'',
+    srcPkgs:[], totalIn:0,
+    outTag:'', outWeight:0, hteWeight:0,
+    flavor:'', extraOuts:[],
+    parentIds:[], batchId:'', notes:''
+  };
+}
+
+/* ============================================================
+   HELPERS
+============================================================ */
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function dateCode(s){const[y,m,d]=s.split('-');return m+d+y.slice(2);}
+function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');return`${m}/${d}/${y}`;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function bLabel(v){
+  const all=[
+    ...BIOMASS,
+    {v:'fresh-frozen-flower',l:'Fresh Frozen Flower'},
+  ];
+  return all.find(b=>b.v===v)?.l||v;
+}
+
+function getThresh(route){
+  const s=settings.thresholds?.[route];
+  const d=DEFAULT_THRESH[route]||{hi:12,mid:8};
+  return s||d;
+}
+
+function strCode(name){
+  if(!name)return'';
+  const u=name.trim().toUpperCase();
+  const nm=u.match(/^(.*?)\s*#?\s*(\d+)$/);
+  if(nm){
+    const letters=nm[1].replace(/[^A-Z]/g,'');
+    return letters.substring(0,4)+nm[2];
+  }
+  const words=u.replace(/[^A-Z\s]/g,'').trim().split(/\s+/).filter(Boolean);
+  if(!words.length)return'';
+  if(words.length===1)return words[0].substring(0,4);
+  if(words.length===2)return words[0].substring(0,2)+words[1].substring(0,2);
+  if(words.length===3)return words[0][0]+words[1][0]+words[2].substring(0,2);
+  return words[0][0]+words[1][0]+words[2][0]+words[3][0];
+}
+
+/* Returns the active product code: custom (from settings) > route default */
+function getRouteCode(route){
+  return(settings.codes?.[route])||ROUTES[route]?.code||route.toUpperCase();
+}
+
+function makeBatchId(sc,route,date){
+  if(!route||!date)return'';
+  const dc=dateCode(date);
+  if(route==='diamonds')return`THCa-POW-${dc}`;
+  const code=getRouteCode(route);
+  // Stage 3 routes don't require a strain prefix
+  if(!sc||ROUTES[route]?.stage===3&&!sc)return`${code}-${dc}`;
+  return`${sc}-${code}-${dc}`;
+}
+
+function calcY(out,input){return(!input||input===0)?0:(out/input)*100;}
+
+function yColor(pct,route){
+  const t=getThresh(route);
+  if(pct>=t.hi)return'var(--accent)';
+  if(pct>=t.mid)return'var(--amber)';
+  return'var(--red)';
+}
+function yBadge(pct,route){
+  const t=getThresh(route);
+  if(pct>=t.hi)return'bg';
+  if(pct>=t.mid)return'ba';
+  return'br';
+}
+
+function totalVapeWeight(b){
+  return(b.outWeight||0)+(b.extraOuts||[]).reduce((s,o)=>s+(o.weight||0),0);
+}
+
+function toast(msg,ms=2300){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),ms);
+}
+function save(){localStorage.setItem('hc_batches',JSON.stringify(batches));}
+
+/* ============================================================
+   CONFIRM MODAL
+============================================================ */
+function showConfirm(msg,cb,okLabel='Delete',okCls='bdr'){
+  document.getElementById('confirm-msg').textContent=msg;
+  const btn=document.getElementById('confirm-ok');
+  btn.textContent=okLabel;btn.className=`btn ${okCls}`;
+  document.getElementById('confirm-modal').classList.add('vis');
+  confirmCB=cb;
+}
+function doConfirm(){
+  document.getElementById('confirm-modal').classList.remove('vis');
+  if(confirmCB)confirmCB();
+  confirmCB=null;
+}
+function cancelConfirm(){
+  document.getElementById('confirm-modal').classList.remove('vis');
+  confirmCB=null;
+}
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+function goTo(screen){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+screen).classList.add('active');
+  curScreen=screen;
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('act'));
+  const tabs={dashboard:'ntab-dashboard',history:'ntab-history',settings:'ntab-settings'};
+  if(tabs[screen])document.getElementById(tabs[screen]).classList.add('act');
+  const back=document.getElementById('hdr-back');
+  const title=document.getElementById('hdr-title');
+  const labels={
+    dashboard:'HC Extract',history:'Batch History',settings:'Yield Settings',
+    'new-batch':'New Batch','batch-detail':'Batch Detail',
+    'active-log':'Active Batches','edit-batch':'Edit Batch'
+  };
+  title.textContent=labels[screen]||'HC Extract';
+  const hasBack=['new-batch','batch-detail','active-log','edit-batch'].includes(screen);
+  hasBack?back.classList.add('vis'):back.classList.remove('vis');
+  if(screen==='dashboard')renderDash();
+  if(screen==='history')renderHistory();
+  if(screen==='settings')renderSettings();
+  if(screen==='new-batch')renderWiz();
+  if(screen==='active-log')renderActiveLog();
+}
+
+function handleBack(){
+  if(curScreen==='new-batch'){
+    if(wStep>1){
+      // Backing up past or to step 3 clears packages so they don't bleed into a changed route/stage
+      if(wStep<=3){
+        draft.srcPkgs=[];
+        draft.totalIn=0;
+      }
+      wStep--;renderWiz();
+    }
+    else showConfirm('Discard this batch?',()=>goTo('dashboard'),'Discard','bs');
+  } else if(curScreen==='active-log'||curScreen==='edit-batch'||curScreen==='batch-detail'){
+    goTo('dashboard');
+  } else {
+    goTo('dashboard');
+  }
+}
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+function renderDash(){
+  const today=todayStr();
+  const todayAll=batches.filter(b=>b.date===today);
+
+  // Biomass = stage 1 only
+  const s1=todayAll.filter(b=>ROUTES[b.route]?.stage===1);
+  const s1In=s1.reduce((s,b)=>s+(b.totalIn||0),0);
+  const s1Out=s1.reduce((s,b)=>s+(b.outWeight||0),0);
+  const avgY=s1.length?(s1.reduce((s,b)=>s+(b.yieldPct||0),0)/s1.length):0;
+
+  document.getElementById('stats-biomass').innerHTML=`
+    <div class="scard"><div class="slabel">Runs Today</div><div class="sval">${s1.length}<span class="sunit">runs</span></div></div>
+    <div class="scard"><div class="slabel">Avg Yield</div><div class="sval" style="color:${yColor(avgY,'crude')}">${avgY.toFixed(1)}<span class="sunit">%</span></div></div>
+    <div class="scard"><div class="slabel">Biomass In</div><div class="sval sm">${s1In.toFixed(0)}<span class="sunit">g</span></div></div>
+    <div class="scard"><div class="slabel">Crude/Badder Out</div><div class="sval sm">${s1Out.toFixed(1)}<span class="sunit">g</span></div></div>
+  `;
+
+  // Downstream
+  const diamBatch=todayAll.filter(b=>b.route==='diamonds');
+  const diamG=diamBatch.reduce((s,b)=>s+(b.outWeight||0),0);
+  const hteG=diamBatch.reduce((s,b)=>s+(b.hteWeight||0),0);
+  const lqdG=todayAll.filter(b=>b.route==='liquid-diamonds').reduce((s,b)=>s+(b.outWeight||0),0);
+  const vapeToday=todayAll.filter(b=>VAPE_ROUTES.includes(b.route));
+  const vapeG=vapeToday.reduce((s,b)=>s+totalVapeWeight(b),0);
+
+  const dashVal=(g,unit='g')=>g>0?`${g.toFixed(1)}<span class="sunit">${unit}</span>`:`<span style="color:var(--text3);font-size:16px;">—</span>`;
+
+  document.getElementById('stats-downstream').innerHTML=`
+    <div class="scard"><div class="slabel">💎 Diamonds</div><div class="sval sm">${dashVal(diamG)}</div></div>
+    <div class="scard"><div class="slabel">🛢 HTE Collected</div><div class="sval sm">${dashVal(hteG)}</div></div>
+    <div class="scard"><div class="slabel">💧 Liq Diamonds</div><div class="sval sm">${dashVal(lqdG)}</div></div>
+    <div class="scard"><div class="slabel">💨 Vape Out</div><div class="sval sm">${vapeG>0?`${vapeG.toFixed(1)}<span class="sunit">g</span><span style="font-size:11px;color:var(--text3);margin-left:4px;">(${vapeToday.length})</span>`:'<span style="color:var(--text3);font-size:16px;">—</span>'}</div></div>
+  `;
+
+  const active=batches.filter(b=>b.status==='active');
+  document.getElementById('dash-active').innerHTML=active.length
+    ?active.slice(0,4).map(aCard).join('')+(active.length>4?`<button class="btn bg2" style="margin-top:4px;" onclick="goTo('active-log')">View all ${active.length} active batches</button>`:'')
+    :`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Tap + to start a run</div></div>`;
+
+  const recent=batches.filter(b=>b.status==='complete').slice(0,4);
+  document.getElementById('dash-recent').innerHTML=recent.length
+    ?recent.map(bCard).join('')
+    :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No completed batches yet</p>`;
+}
+
+function bCard(b){
+  const r=ROUTES[b.route];
+  const y=b.yieldPct||0;
+  const fill=Math.min(y*5,100);
+  const col=yColor(y,b.route);
+  const sub=b.route==='diamonds'?fmtDate(b.date):b.strain;
+  const extraInfo=VAPE_ROUTES.includes(b.route)&&b.flavor?` · ${b.flavor}`:'';
+  return`<div class="card" onclick="viewBatch('${b.id}')">
+    <div class="card-row">
+      <div style="min-width:0;flex:1;">
+        <div style="font-family:var(--mono);font-size:13px;font-weight:500;">${b.batchId}</div>
+        ${b.outTag?`<div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;">${b.outTag}</div>`:''}
+        <div class="card-sub" style="margin-top:3px;">${sub} · ${r?.label||''}${extraInfo}</div>
+      </div>
+      <span class="badge ${yBadge(y,b.route)}">${y.toFixed(1)}%</span>
+    </div>
+    <div class="ybar"><div class="yfill" style="width:${fill}%;background:${col}"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px;">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${fmtDate(b.date)}</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${(b.totalIn||0).toFixed(0)}g → ${(b.outWeight||0).toFixed(1)}g</span>
+    </div>
+  </div>`;
+}
+
+function aCard(b){
+  const r=ROUTES[b.route];
+  const y=b.yieldPct||0;
+  const col=yColor(y,b.route);
+  const initWt=b.outWeightInitial||b.outWeight||0;
+  const curWt=b.outWeight||0;
+  const loss=initWt-curWt;
+  const lossPill=loss>0.01?`<span class="loss-pill">-${loss.toFixed(1)}g purge</span>`:'';
+  return`<div class="card" onclick="viewBatch('${b.id}')">
+    <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:var(--mono);font-size:13px;font-weight:500;">${b.batchId}</div>
+        ${b.outTag?`<div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;">${b.outTag}</div>`:''}
+      </div>
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+        <span class="badge bx" style="font-size:9px;">${r?.icon||''} ${r?.label||''}</span>
+        ${lossPill}
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px;">${fmtDate(b.date)} · ${b.tech||''}</div>
+    <div class="acard-wts">
+      <div class="awt-item"><div class="awt-label">Input</div><div class="awt-val">${(b.totalIn||0).toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div></div>
+      <div class="awt-sep">→</div>
+      <div class="awt-item"><div class="awt-label">Current Out</div><div class="awt-val" style="color:${col}">${curWt.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div></div>
+      <div class="awt-sep"></div>
+      <div class="awt-item"><div class="awt-label">Yield</div><div class="awt-val yield" style="color:${col}">${y.toFixed(1)}%</div></div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   ACTIVE BATCH LOG
+============================================================ */
+function renderActiveLog(){
+  const active=batches.filter(b=>b.status==='active');
+  const el=document.getElementById('active-log-content');
+  if(!active.length){
+    el.innerHTML=`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Tap + to start a new run</div></div>`;
+    return;
+  }
+  el.innerHTML=active.map(aCard).join('');
+}
+
+/* ============================================================
+   MARK COMPLETE
+============================================================ */
+let _completedBatchId=null;
+async function markComplete(id){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  b.status='complete';
+  b.completedAt=Date.now();
+  await saveDoc(b);
+  _completedBatchId=id;
+  document.getElementById('cn-bid').textContent=b.batchId;
+  document.getElementById('cn-tag').textContent=`Tag: ${b.outTag||'—'}`;
+  document.getElementById('complete-notice').classList.add('vis');
+  renderDash();
+  if(curScreen==='active-log')renderActiveLog();
+}
+function closeCN(){
+  document.getElementById('complete-notice').classList.remove('vis');
+  if(_completedBatchId){viewBatch(_completedBatchId);_completedBatchId=null;}
+}
+
+/* ============================================================
+   EDIT BATCH
+============================================================ */
+function editBatch(id){
+  _editBatchId=id;
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const isDiam=b.route==='diamonds';
+  const isVape=VAPE_ROUTES.includes(b.route);
+  const isDownstream=ROUTES[b.route]?.stage>1;
+  const curWt=b.outWeight||0;
+  const initWt=b.outWeightInitial||curWt;
+  const loss=initWt-curWt;
+
+  document.getElementById('edit-content').innerHTML=`
+    <div style="padding:0 0 100px;">
+
+      <div class="edit-section">
+        <div class="edit-section-title">Batch ID</div>
+        <div class="fg" style="margin-bottom:0;">
+          <input id="e-batchid" class="fi mono" type="text" value="${b.batchId}" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:14px;">
+          <div class="fhint">Edit carefully — must match what is entered in METRC</div>
+        </div>
+      </div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">Output Weight · Solvent Tracking</div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="lt-label">CURRENT OUTPUT WEIGHT</div>
+            <div style="font-family:var(--mono);font-size:26px;font-weight:500;margin-top:2px;">${curWt.toFixed(2)}<span style="font-size:13px;color:var(--text2);">g</span></div>
+          </div>
+          ${loss>0.01?`<div style="text-align:right;"><div class="lt-label">TOTAL PURGE LOSS</div><div style="font-family:var(--mono);font-size:16px;font-weight:500;color:var(--amber);">-${loss.toFixed(2)}g</div></div>`:''}
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:4px;">
+          <button class="btn bs" style="flex:1;padding:10px;font-size:13px;" onclick="openWadj('${id}','outWeight','Output Weight',false)">+ Add Mass</button>
+          <button class="btn bs" style="flex:1;padding:10px;font-size:13px;" onclick="openWadj('${id}','outWeight','Output Weight',true)">− Subtract Mass</button>
+        </div>
+        ${isDiam?`
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="lt-label">HTE WEIGHT (stays on crude tag)</div>
+            <div style="font-family:var(--mono);font-size:13px;font-weight:500;">${(b.hteWeight||0).toFixed(2)}g</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn bs" style="flex:1;padding:10px;font-size:13px;" onclick="openWadj('${id}','hteWeight','HTE Weight',false)">+ Add HTE</button>
+            <button class="btn bs" style="flex:1;padding:10px;font-size:13px;" onclick="openWadj('${id}','hteWeight','HTE Weight',true)">− Subtract HTE</button>
+          </div>
+        </div>`:''}
+      </div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">Product Tag</div>
+        <div class="fg" style="margin-bottom:0;">
+          <div class="sg">
+            <input id="e-outtag" class="fi mono" type="text" value="${b.outTag||''}" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:12px">
+            <div class="scanbtn" onclick="openScanner('e-outtag')">${barIcon()}</div>
+          </div>
+        </div>
+      </div>
+
+      ${isVape?`
+      <div class="edit-section">
+        <div class="edit-section-title">Flavor / SKU</div>
+        <div class="fg"><label class="flabel">Primary Flavor</label>
+          <input id="e-flavor" class="fi" type="text" value="${b.flavor||''}"></div>
+        ${(b.extraOuts||[]).map((o,i)=>`
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:6px;">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px;">${o.flavor||'OUTPUT '+(i+1)}</div>
+            <div class="fg" style="margin-bottom:6px;"><label class="flabel">Weight (g)</label>
+              <input id="e-xwt-${i}" class="fi" type="number" step="0.01" value="${o.weight||0}" inputmode="decimal"></div>
+            <div class="fg" style="margin-bottom:0;"><label class="flabel">Tag</label>
+              <div class="sg"><input id="e-xtag-${i}" class="fi mono" type="text" value="${o.tag||''}" maxlength="24" style="font-size:12px">
+                <div class="scanbtn" onclick="openScanner('e-xtag-${i}')">${barIcon()}</div></div></div>
+          </div>`).join('')}
+      </div>`:''}
+
+      <div class="edit-section">
+        <div class="edit-section-title">Source Packages</div>
+        <div id="e-src-list">
+          ${(b.srcPkgs||[]).map((p,i)=>`
+            <div id="e-spkg-${i}" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:4px;">${p.tag||'—'}${p.srcBatchId?' · '+p.srcBatchId:''}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <label class="flabel" style="margin:0;white-space:nowrap;">Weight (g)</label>
+                  <input id="e-spwt-${i}" class="fi" type="number" step="0.01" value="${p.weight||0}" inputmode="decimal" style="max-width:100px;padding:6px 8px;font-family:var(--mono);font-size:13px;">
+                </div>
+              </div>
+              <button class="prm" onclick="removeEditSrcPkg(${i})" style="margin-top:2px;font-size:18px;">✕</button>
+            </div>`).join('')}
+        </div>
+        <button class="addbtn" onclick="toggleEditAddPkg()">+ Add Source Package</button>
+        <div id="e-add-pkg-form" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:8px;">
+          <div class="fg">
+            <label class="flabel">Tag #</label>
+            <div class="sg"><input id="e-new-tag" class="fi mono" type="text" placeholder="1A4…" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" style="font-size:12px">
+              <div class="scanbtn" onclick="openScanner('e-new-tag')">${barIcon()}</div></div>
+          </div>
+          ${isDownstream?`<div class="fg"><label class="flabel">Source Batch ID</label>
+            <input id="e-new-bid" class="fi mono" type="text" placeholder="APFR-CRUDE-050426" style="font-size:13px"></div>`:''}
+          <div class="fg" style="margin-bottom:8px;"><label class="flabel">Weight (g)</label>
+            <input id="e-new-wt" class="fi" type="number" step="0.01" inputmode="decimal"></div>
+          <button class="btn bs" style="padding:9px;" onclick="addEditSrcPkg('${id}',${isDownstream})">Add Package</button>
+        </div>
+      </div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">Notes</div>
+        <div class="fg" style="margin-bottom:0;">
+          <input id="e-notes" class="fi" type="text" placeholder="Add notes…" value="${b.notes||''}">
+        </div>
+      </div>
+
+      <div class="btns" style="padding:0 0 12px;">
+        <button class="btn bp" onclick="saveEdit('${id}')">Save Changes</button>
+        <button class="btn bg2" onclick="viewBatch('${id}')">Cancel</button>
+      </div>
+    </div>`;
+  goTo('edit-batch');
+}
+
+let _editBatchId=null;
+async function removeEditSrcPkg(i){
+  const b=batches.find(x=>x.id===_editBatchId);
+  if(!b)return;
+  b.srcPkgs.splice(i,1);
+  b.totalIn=(b.srcPkgs||[]).reduce((s,p)=>s+(p.weight||0),0)||b.totalIn;
+  await saveDoc(b);editBatch(_editBatchId);
+}
+function toggleEditAddPkg(){
+  const f=document.getElementById('e-add-pkg-form');
+  if(f)f.style.display=f.style.display==='none'?'block':'none';
+}
+async function addEditSrcPkg(id,isDownstream){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const tag=document.getElementById('e-new-tag')?.value.trim();
+  const wt=parseFloat(document.getElementById('e-new-wt')?.value)||0;
+  if(!tag||tag.length!==24){toast('Tag must be 24 characters');return;}
+  if(!wt){toast('Enter a weight');return;}
+  const pkg={tag,weight:wt};
+  if(isDownstream){
+    const bid=document.getElementById('e-new-bid')?.value.trim();
+    if(!bid){toast('Enter source batch ID');return;}
+    pkg.srcBatchId=bid;
+  }
+  b.srcPkgs.push(pkg);
+  b.totalIn=(b.srcPkgs||[]).reduce((s,p)=>s+(p.weight||0),0);
+  await saveDoc(b);editBatch(id);
+}
+
+async function saveEdit(id){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  // Batch ID
+  const newBid=document.getElementById('e-batchid')?.value.trim();
+  if(newBid)b.batchId=newBid;
+  // Output tag
+  const newTag=document.getElementById('e-outtag')?.value.trim();
+  if(newTag)b.outTag=newTag;
+  // Vape flavors
+  const flEl=document.getElementById('e-flavor');
+  if(flEl)b.flavor=flEl.value.trim();
+  if(b.extraOuts){
+    b.extraOuts.forEach((o,i)=>{
+      const wEl=document.getElementById(`e-xwt-${i}`);
+      const tEl=document.getElementById(`e-xtag-${i}`);
+      if(wEl)o.weight=parseFloat(wEl.value)||0;
+      if(tEl&&tEl.value.trim())o.tag=tEl.value.trim();
+    });
+  }
+  // Source package weights (direct edit, not weight-adj flow)
+  (b.srcPkgs||[]).forEach((p,i)=>{
+    const el=document.getElementById(`e-spwt-${i}`);
+    if(el)p.weight=parseFloat(el.value)||0;
+  });
+  b.totalIn=(b.srcPkgs||[]).reduce((s,p)=>s+(p.weight||0),0)||b.totalIn;
+  b.notes=document.getElementById('e-notes')?.value.trim()||b.notes;
+  b.editedAt=Date.now();
+  await saveDoc(b);
+  toast('Changes saved ✓');
+  viewBatch(id);
+}
+
+/* ============================================================
+   WEIGHT ADJUSTMENT MODAL
+============================================================ */
+let _wadjBatchId=null, _wadjField=null, _wadjSubtract=false;
+
+function openWadj(id, field, label, subtract=false){
+  _wadjBatchId=id; _wadjField=field; _wadjSubtract=subtract;
+  document.getElementById('wadj-amount').value='';
+  document.getElementById('wadj-reason').value='';
+  document.getElementById('wadj-preview').style.display='none';
+  document.getElementById('wadj-confirm-btn').disabled=true;
+  // Set active button style
+  const addBtn=document.getElementById('wadj-add-btn');
+  const subBtn=document.getElementById('wadj-sub-btn');
+  addBtn.className='btn bg2'+(subtract?'':' wadj-type-active');
+  subBtn.className='btn bg2'+(subtract?' wadj-type-active':'');
+  document.getElementById('wadj-modal').classList.add('vis');
+  setTimeout(()=>document.getElementById('wadj-amount')?.focus(),100);
+}
+function setWadjType(type){
+  _wadjSubtract=(type==='subtract');
+  document.getElementById('wadj-add-btn').className='btn bg2'+(_wadjSubtract?'':' wadj-type-active');
+  document.getElementById('wadj-sub-btn').className='btn bg2'+(_wadjSubtract?' wadj-type-active':'');
+  updateWadjPreview();
+}
+function updateWadjPreview(){
+  const b=batches.find(x=>x.id===_wadjBatchId);
+  if(!b)return;
+  const amt=parseFloat(document.getElementById('wadj-amount')?.value)||0;
+  const reason=document.getElementById('wadj-reason')?.value.trim();
+  const before=b[_wadjField]||0;
+  const after=_wadjSubtract?before-amt:before+amt;
+  const prev=document.getElementById('wadj-preview');
+  if(amt>0){
+    prev.style.display='block';
+    document.getElementById('wadj-before').textContent=before.toFixed(2)+'g';
+    document.getElementById('wadj-delta').textContent=(_wadjSubtract?'−':'+')+''+amt.toFixed(2)+'g';
+    document.getElementById('wadj-delta').style.color=_wadjSubtract?'var(--amber)':'var(--accent)';
+    document.getElementById('wadj-after').textContent=Math.max(0,after).toFixed(2)+'g';
+  } else {
+    prev.style.display='none';
+  }
+  document.getElementById('wadj-confirm-btn').disabled=!(amt>0&&reason);
+}
+function closeWadj(){document.getElementById('wadj-modal').classList.remove('vis');}
+async function confirmWadj(){
+  const b=batches.find(x=>x.id===_wadjBatchId);
+  if(!b)return;
+  const amt=parseFloat(document.getElementById('wadj-amount')?.value)||0;
+  const reason=document.getElementById('wadj-reason')?.value.trim();
+  if(!amt||!reason){toast('Enter amount and reason');return;}
+  const before=b[_wadjField]||0;
+  const after=Math.max(0,_wadjSubtract?before-amt:before+amt);
+  // Track initial weight on first output weight change
+  if(_wadjField==='outWeight'&&!b.outWeightInitial)b.outWeightInitial=before;
+  b[_wadjField]=after;
+  if(_wadjField==='outWeight')b.yieldPct=calcY(after,b.totalIn);
+  // Append to weight history
+  if(!b.weightHistory)b.weightHistory=[];
+  b.weightHistory.push({
+    ts:Date.now(),
+    field:_wadjField,
+    type:_wadjSubtract?'subtract':'add',
+    delta:amt,
+    before,
+    after,
+    reason
+  });
+  b.editedAt=Date.now();
+  await saveDoc(b);
+  closeWadj();
+  toast((_wadjSubtract?'−':'+')+''+amt.toFixed(2)+'g recorded');
+  editBatch(_wadjBatchId);
+}
+
+
+
+/* ============================================================
+   BATCH DETAIL
+============================================================ */
+function viewBatch(id){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const r=ROUTES[b.route];
+  const y=b.yieldPct||0;
+  const col=yColor(y,b.route);
+
+  const pkgRows=(b.srcPkgs||[]).map(p=>`
+    <div class="pitem">
+      <div style="flex:1;min-width:0;">
+        <div class="ptag">${p.tag}</div>
+        ${p.srcBatchId?`<div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:1px;">${p.srcBatchId}</div>`:''}
+      </div>
+      <span class="pwt">${p.weight}g</span>
+    </div>`).join('');
+
+  const extraRows=(b.extraOuts||[]).map(o=>`
+    <div class="srow"><span class="skey">${o.flavor||'Output'} Tag</span><span class="sval" style="font-size:10.5px">${o.tag}</span></div>
+    <div class="srow"><span class="skey">${o.flavor||'Output'} Wt</span><span class="sval">${o.weight}g</span></div>`).join('');
+
+  const parentRows=(b.parentIds||[]).map(pid=>{
+    const pb=batches.find(x=>x.id===pid);
+    return pb?`<div class="srow"><span class="skey">Source Batch</span><span class="sval">${pb.batchId}</span></div>`:'';
+  }).join('');
+
+  const hist=(b.weightHistory||[]);
+  const histHtml=hist.length?`
+    <div class="sec">Weight Adjustment History</div>
+    <div class="card nc" style="padding:0;overflow:hidden;">
+      ${[...hist].reverse().map(h=>{
+        const fieldLabel=h.field==='hteWeight'?'HTE':'Output';
+        const ts=new Date(h.ts);
+        const tStr=ts.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+ts.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        return`<div class="whist-item">
+          <div class="whist-delta ${h.type==='add'?'whist-add':'whist-sub'}">${h.type==='add'?'+':'−'}${h.delta.toFixed(2)}g</div>
+          <div class="whist-info">
+            <div class="whist-reason">${h.reason}</div>
+            <div class="whist-meta">${fieldLabel} · ${h.before.toFixed(2)}g → ${h.after.toFixed(2)}g · ${tStr}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`:'';
+
+  document.getElementById('detail-content').innerHTML=`
+    <div class="ydisplay">
+      <div class="ypct" style="color:${col}">${y.toFixed(2)}%</div>
+      <div class="ysub">${r?.label||''} Yield</div>
+      <div class="yform">${(b.outWeight||0).toFixed(1)}g ÷ ${(b.totalIn||0).toFixed(1)}g</div>
+    </div>
+    <div class="card nc">
+      <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500">${b.batchId}</span></div>
+      ${b.outTag?`<div class="srow"><span class="skey">Product Tag</span><span class="sval" style="font-size:11px">${b.outTag}</span></div>`:''}
+      ${b.route!=='diamonds'?`<div class="srow"><span class="skey">Strain</span><span class="sval">${b.strain}</span></div>`:''}
+      <div class="srow"><span class="skey">Product</span><span class="sval">${r?.label||b.route}</span></div>
+      ${b.biomassType?`<div class="srow"><span class="skey">Biomass</span><span class="sval">${bLabel(b.biomassType)}</span></div>`:''}
+      <div class="srow"><span class="skey">Date</span><span class="sval">${fmtDate(b.date)}</span></div>
+      <div class="srow"><span class="skey">Tech</span><span class="sval">${b.tech}</span></div>
+      <div class="srow"><span class="skey">Status</span><span class="sval" style="color:${b.status==='active'?'var(--amber)':'var(--accent)'}">${b.status==='active'?'In Progress':'Complete'}</span></div>
+      ${parentRows}
+      <div class="srow"><span class="skey">Total Input</span><span class="sval">${(b.totalIn||0).toFixed(1)}g</span></div>
+      <div class="srow"><span class="skey">Product Weight</span><span class="sval">${(b.outWeight||0).toFixed(1)}g</span></div>
+      ${b.outWeightInitial&&b.outWeightInitial!==b.outWeight?`<div class="srow"><span class="skey">Initial Wt</span><span class="sval">${b.outWeightInitial.toFixed(1)}g <span style="color:var(--amber)">(-${(b.outWeightInitial-b.outWeight).toFixed(1)}g purge)</span></span></div>`:''}
+      ${b.hteWeight?`<div class="srow"><span class="skey">HTE Wt (crude tag)</span><span class="sval">${b.hteWeight}g</span></div>`:''}
+      ${b.flavor?`<div class="srow"><span class="skey">Flavor</span><span class="sval">${b.flavor}</span></div>`:''}
+      ${extraRows}
+      ${b.notes?`<div class="srow"><span class="skey">Notes</span><span class="sval">${b.notes}</span></div>`:''}
+    </div>
+    ${pkgRows?`<div class="sec">Source Packages</div><div class="plist">${pkgRows}</div>`:''}
+    ${histHtml}
+    <div class="btns">
+      ${b.status==='active'?`
+        <button class="btn bp" onclick="markComplete('${b.id}')">✓ Mark Complete</button>
+        <button class="btn bs" onclick="editBatch('${b.id}')">✎ Edit Batch</button>
+      `:`
+        <button class="btn bs" onclick="downstream('${b.id}')">Create Downstream Batch →</button>
+        <button class="btn bg2" onclick="reopenBatch('${b.id}')">↩ Reopen Batch</button>
+      `}
+      <button class="btn bdr" onclick="delBatch('${b.id}')">Delete Batch</button>
+    </div>`;
+  goTo('batch-detail');
+}
+
+function delBatch(id){
+  showConfirm(
+    'Delete this batch? This cannot be undone.',
+    async()=>{await deleteDoc(id);toast('Batch deleted');goTo('dashboard');}
+  );
+}
+
+function reopenBatch(id){
+  showConfirm(
+    'Reopen this batch? It will move back to In Progress.',
+    async()=>{
+      const b=batches.find(x=>x.id===id);
+      if(!b)return;
+      b.status='active';
+      delete b.completedAt;
+      await saveDoc(b);
+      toast('Batch reopened');
+      viewBatch(id);
+    },
+    'Reopen','bs'
+  );
+}
+
+/* ============================================================
+   HISTORY
+============================================================ */
+function renderHistory(){
+  const f=document.getElementById('hist-filter')?.value||'';
+  const list=f?batches.filter(b=>b.route===f):[...batches].reverse();
+  const el=document.getElementById('hist-list');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="eicon">📋</div><div class="etitle">No batches found</div></div>`;return;}
+  const byDate={};
+  list.forEach(b=>{const k=b.date||'?';(byDate[k]||(byDate[k]=[])).push(b);});
+  el.innerHTML=Object.entries(byDate).map(([date,bs])=>`
+    <div style="margin-bottom:14px;"><div class="sec" style="margin-top:0">${fmtDate(date)}</div>${bs.map(bCard).join('')}</div>`).join('');
+}
+
+/* ============================================================
+   SETTINGS
+============================================================ */
+function renderSettings(){
+  // Product codes — skip diamonds (hardcoded)
+  const codeRoutes=Object.entries(ROUTES).filter(([k])=>k!=='diamonds');
+  document.getElementById('code-cards').innerHTML=`
+    <div class="card nc" style="margin-bottom:10px;">
+      ${codeRoutes.map(([key,r])=>{
+        const cur=getRouteCode(key);
+        return`<div class="srow" style="align-items:center;gap:10px;">
+          <div style="display:flex;align-items:center;gap:7px;flex:1;">
+            <span style="font-size:15px">${r.icon}</span>
+            <span style="font-size:13px;">${r.label}</span>
+          </div>
+          <input id="pc-${key}" class="fi mono" type="text" value="${cur}" maxlength="8" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+            style="width:90px;text-align:center;padding:6px 8px;font-size:14px;text-transform:uppercase;">
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  // Yield thresholds
+  document.getElementById('thresh-cards').innerHTML=Object.entries(ROUTES).map(([key,r])=>{
+    const t=getThresh(key);
+    return`<div class="thresh-card">
+      <div class="thresh-header">
+        <span style="font-size:16px">${r.icon}</span>
+        <span style="font-weight:500;font-size:13px">${r.label}</span>
+        <span class="badge bx" style="margin-left:auto;font-family:var(--mono)">${getRouteCode(key)}</span>
+      </div>
+      <div class="thresh-inputs">
+        <div class="fg"><label class="flabel">Good ≥ (%)</label><input id="th-hi-${key}" class="fi" type="number" step="0.5" min="0" max="100" value="${t.hi}" inputmode="decimal"></div>
+        <div class="fg"><label class="flabel">OK ≥ (%)</label><input id="th-mid-${key}" class="fi" type="number" step="0.5" min="0" max="100" value="${t.mid}" inputmode="decimal"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function saveSettings(){
+  // Codes
+  const codes={};
+  Object.keys(ROUTES).filter(k=>k!=='diamonds').forEach(key=>{
+    const v=document.getElementById(`pc-${key}`)?.value.trim().toUpperCase();
+    if(v)codes[key]=v;
+  });
+  // Thresholds
+  const thresh={};
+  Object.keys(ROUTES).forEach(key=>{
+    const hi=parseFloat(document.getElementById(`th-hi-${key}`)?.value)||DEFAULT_THRESH[key]?.hi||10;
+    const mid=parseFloat(document.getElementById(`th-mid-${key}`)?.value)||DEFAULT_THRESH[key]?.mid||6;
+    thresh[key]={hi,mid};
+  });
+  settings.codes=codes;
+  settings.thresholds=thresh;
+  saveSettings();
+  toast('Settings saved ✓');
+}
+
+function resetSettings(){
+  showConfirm('Reset all settings to defaults?',()=>{
+    settings={};
+    saveSettings();
+    renderSettings();
+    toast('Reset to defaults');
+  },'Reset','bs');
+}
+
+/* ============================================================
+   WIZARD
+============================================================ */
+function startNewBatch(){resetDraft();wStep=1;goTo('new-batch');}
+
+function downstream(pid){
+  const p=batches.find(b=>b.id===pid);
+  if(!p)return;
+  resetDraft();
+  draft.parentIds=[pid];
+  draft.strain=p.strain;draft.strainCode=p.strainCode;draft.tech=p.tech;
+  draft.route=DOWNSTREAM_MAP[p.route]||null;
+  wStep=1;goTo('new-batch');
+}
+
+function renderWiz(){
+  let dots='';
+  for(let i=1;i<=5;i++){
+    if(i>1)dots+='<div class="sline"></div>';
+    const cls=i<wStep?'done':i===wStep?'act':'';
+    dots+=`<div class="sdot ${cls}"></div>`;
+  }
+  document.getElementById('step-dots').innerHTML=dots;
+  ({1:s1,2:s2,3:s3,4:s4,5:s5})[wStep]?.(
+    document.getElementById('wiz-content'),
+    document.getElementById('wiz-actions')
+  );
+}
+
+/* Step 1 — Route */
+function s1(c,a){
+  document.getElementById('hdr-title').textContent='Select Product';
+  const rc=k=>{
+    const r=ROUTES[k];const sel=draft.route===k;
+    return`<div class="rcard ${sel?'sel':''}" onclick="pickRoute('${k}')">
+      <div class="ricon">${r.icon}</div>
+      <div class="rinfo"><div class="rtitle">${r.label}</div><div class="rdesc">${r.desc}</div></div>
+      <div class="rarrow">${sel?'✓':'›'}</div>
+    </div>`;
+  };
+  c.innerHTML=`
+    <div class="sdiv"><div class="sdiv-l">Stage 1 · From Biomass</div><div class="sdiv-line"></div></div>
+    ${rc('crude')}${rc('live-badder')}${rc('cured-badder')}
+    <div class="sdiv"><div class="sdiv-l">Stage 2 · From Crude / Badder</div><div class="sdiv-line"></div></div>
+    ${rc('diamonds')}${rc('lr-vape')}${rc('cr-vape')}
+    <div class="sdiv"><div class="sdiv-l">Stage 3 · From Diamonds</div><div class="sdiv-line"></div></div>
+    ${rc('liquid-diamonds')}${rc('ld-vape')}`;
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${!draft.route?'disabled':''}>Continue →</button></div>`;
+}
+function pickRoute(k){
+  if(draft.route!==k){
+    // Route changed — clear any packages that belonged to previous route
+    draft.srcPkgs=[];
+    draft.totalIn=0;
+  }
+  draft.route=k;
+  renderWiz();
+}
+
+/* Step 2 — Batch details or parent selection */
+function s2(c,a){
+  const stage=ROUTES[draft.route]?.stage||1;
+  document.getElementById('hdr-title').textContent=stage===1?'Batch Details':'Select Source';
+
+  if(stage===1){
+    const inferred=BIOMASS_INFER[draft.route];
+    const opts=BIOMASS_OPTIONS[draft.route];
+    if(inferred) draft.biomassType=inferred.v;
+
+    const biomassBlock = inferred
+      ? `<div class="fg">
+          <label class="flabel">Biomass Type</label>
+          <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
+            <span style="font-size:13px;flex:1;">${inferred.l}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;">INFERRED</span>
+          </div>
+        </div>`
+      : `<div class="fg">
+          <label class="flabel">Biomass Type <span class="req">*</span></label>
+          <select id="f-bio" class="fi">
+            <option value="">Select biomass type…</option>
+            ${(opts||[]).map(o=>`<option value="${o.v}" ${draft.biomassType===o.v?'selected':''}>${o.l}</option>`).join('')}
+          </select>
+        </div>`;
+
+    c.innerHTML=`
+      <div class="fg">
+        <label class="flabel">Strain Name <span class="req">*</span></label>
+        <input id="f-strain" class="fi" type="text" placeholder="e.g. Apple Fritter" value="${draft.strain}" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="fg">
+        <label class="flabel">Strain Code <span class="req">*</span></label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="f-code" class="fi mono" type="text" placeholder="APFR" maxlength="6" value="${draft.strainCode}" style="max-width:88px;text-transform:uppercase;">
+          <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">Auto-gen · editable</span>
+        </div>
+        <div class="fhint">4 chars · numbered strains (GMO #5 → GMO5)</div>
+      </div>
+      ${biomassBlock}
+      <div class="row2">
+        <div class="fg"><label class="flabel">Date <span class="req">*</span></label><input id="f-date" class="fi" type="date" value="${draft.date}"></div>
+        <div class="fg"><label class="flabel">Tech <span class="req">*</span></label><input id="f-tech" class="fi" type="text" placeholder="Name" value="${draft.tech}"></div>
+      </div>`;
+    setTimeout(()=>{
+      const si=document.getElementById('f-strain');
+      const ci=document.getElementById('f-code');
+      if(si&&ci){
+        si.addEventListener('input',()=>{draft.strain=si.value;draft.strainCode=strCode(si.value);ci.value=draft.strainCode;});
+        ci.addEventListener('input',()=>{draft.strainCode=ci.value.toUpperCase();ci.value=draft.strainCode;});
+      }
+    },30);
+  } else {
+    // Downstream: manual date/tech entry.
+    // diamonds — batch ID is always THCa-POW-{date}, strain irrelevant.
+    // Stage 3 (liquid-diamonds, ld-vape) — strain not required either.
+    const noStrain=ROUTES[draft.route]?.stage===3||draft.route==='diamonds';
+    const strainBlock=noStrain
+      ? '' // no strain block at all
+      : (draft.strain
+          ? `<div class="fg"><label class="flabel">Strain (pre-filled)</label>
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;display:flex;justify-content:space-between;">
+                <span>${draft.strain}</span><span style="font-family:var(--mono);font-size:10px;color:var(--accent)">${draft.strainCode}</span>
+              </div></div>`
+          : `<div class="fg"><label class="flabel">Strain Name</label>
+              <input id="f-strain-ds" class="fi" type="text" placeholder="e.g. Apple Fritter" value="${draft.strain}" autocomplete="off">
+              <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
+                <input id="f-code-ds" class="fi mono" type="text" placeholder="APFR" maxlength="6" value="${draft.strainCode}" style="max-width:88px;text-transform:uppercase;">
+                <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">Strain code</span>
+              </div></div>`);
+    c.innerHTML=`
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);line-height:1.6;">
+        Source packages will be scanned in the next step.<br>Enter each tag, batch ID, and weight manually.
+      </div>
+      ${strainBlock}
+      <div class="row2">
+        <div class="fg"><label class="flabel">Date <span class="req">*</span></label><input id="f-date" class="fi" type="date" value="${draft.date}"></div>
+        <div class="fg"><label class="flabel">Tech <span class="req">*</span></label><input id="f-tech" class="fi" type="text" placeholder="Name" value="${draft.tech}"></div>
+      </div>`;
+    setTimeout(()=>{
+      const si=document.getElementById('f-strain-ds');
+      const ci=document.getElementById('f-code-ds');
+      if(si&&ci){
+        si.addEventListener('input',()=>{draft.strain=si.value;draft.strainCode=strCode(si.value);ci.value=draft.strainCode;});
+        ci.addEventListener('input',()=>{draft.strainCode=ci.value.toUpperCase();ci.value=draft.strainCode;});
+      }
+    },30);
+  }
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()">Continue →</button></div>`;
+}
+
+function toggleParent(id){
+  const i=draft.parentIds.indexOf(id);
+  i===-1?draft.parentIds.push(id):draft.parentIds.splice(i,1);
+  if(draft.parentIds.length){
+    const p=batches.find(b=>b.id===draft.parentIds[0]);
+    if(p){draft.strain=p.strain||'';draft.strainCode=p.strainCode||'';}
+  }
+  renderWiz();
+}
+
+/* Step 3 — Source packages or confirm input */
+function s3(c,a){
+  const stage=ROUTES[draft.route]?.stage||1;
+  document.getElementById('hdr-title').textContent=stage===1?'Source Packages':'Confirm Input';
+
+  if(stage===1){
+    const total=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
+    draft.totalIn=total;
+    c.innerHTML=`
+      <div class="fg">
+        <label class="flabel">METRC Tag # <span class="req">*</span></label>
+        <div class="sg">
+          <input id="p-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false">
+          <div class="scanbtn" onclick="openScanner('p-tag')">${barIcon()}</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="flabel">Weight (g) <span class="req">*</span></label>
+        <input id="p-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" inputmode="decimal">
+      </div>
+      <button class="btn bs" style="margin-bottom:12px;" onclick="addPkg(false)">+ Add Package</button>
+      <div class="div"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span class="sec" style="margin:0">Added (${draft.srcPkgs.length})</span>
+        <span style="font-family:var(--mono);font-size:13px;">Total: <strong>${total.toFixed(1)}g</strong></span>
+      </div>
+      <div class="plist">${draft.srcPkgs.length
+        ?draft.srcPkgs.map((p,i)=>`<div class="pitem">
+            <div style="flex:1;min-width:0;">
+              <div class="ptag">${p.tag}</div>
+              ${p.srcBatchId?`<div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${p.srcBatchId}</div>`:''}
+            </div>
+            <span class="pwt">${p.weight}g</span>
+            <span class="prm" onclick="rmPkg(${i})">✕</span></div>`).join('')
+        :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No packages added yet</p>`}
+      </div>`;
+    setTimeout(()=>{document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')addPkg(false);});},30);
+  } else {
+    // Downstream: require tag, source batch ID, and weight
+    const total=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
+    draft.totalIn=total;
+    c.innerHTML=`
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);">
+        Scan each source package tag and enter the batch ID it came from plus the weight being used.
+      </div>
+      <div class="fg">
+        <label class="flabel">Source METRC Tag # <span class="req">*</span></label>
+        <div class="sg">
+          <input id="p-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false">
+          <div class="scanbtn" onclick="openScanner('p-tag')">${barIcon()}</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="flabel">Source Batch ID <span class="req">*</span></label>
+        <input id="p-batchid" class="fi mono" type="text" placeholder="e.g. APFR-CRUDE-050426" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:13px">
+        <div class="fhint" id="p-batchid-hint"></div>
+      </div>
+      <div class="fg">
+        <label class="flabel">Weight Used (g) <span class="req">*</span></label>
+        <input id="p-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" inputmode="decimal">
+      </div>
+      <button class="btn bs" style="margin-bottom:12px;" onclick="addPkg(true)">+ Add Source Package</button>
+      <div class="div"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span class="sec" style="margin:0">Added (${draft.srcPkgs.length})</span>
+        <span style="font-family:var(--mono);font-size:13px;">Total: <strong>${total.toFixed(1)}g</strong></span>
+      </div>
+      <div class="plist">${draft.srcPkgs.length
+        ?draft.srcPkgs.map((p,i)=>`<div class="pitem">
+            <div style="flex:1;min-width:0;">
+              <div class="ptag">${p.tag}</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:1px;">${p.srcBatchId||''}</div>
+            </div>
+            <span class="pwt">${p.weight}g</span>
+            <span class="prm" onclick="rmPkg(${i})">✕</span></div>`).join('')
+        :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No packages added yet</p>`}
+      </div>`;
+    // Auto-suggest batch ID from saved batches when tag is entered
+    setTimeout(()=>{
+      const tagEl=document.getElementById('p-tag');
+      const bidEl=document.getElementById('p-batchid');
+      const hint=document.getElementById('p-batchid-hint');
+      if(tagEl&&bidEl){
+        tagEl.addEventListener('input',()=>{
+          const match=batches.find(b=>b.outTag===tagEl.value.trim());
+          if(match){bidEl.value=match.batchId;if(hint)hint.textContent='✓ Auto-filled from saved batch';}
+          else{if(hint)hint.textContent='';}
+        });
+        document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')addPkg(true);});
+      }
+    },30);
+  }
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${draft.srcPkgs.length===0?'disabled':''}>Continue →</button></div>`;
+}
+
+function addPkg(isDownstream){
+  const tag=document.getElementById('p-tag').value.trim();
+  const wt=parseFloat(document.getElementById('p-wt').value);
+  if(!tag){toast('Enter a tag number');return;}
+  if(tag.length!==24){toast('MA tags must be 24 characters');return;}
+  if(!wt||wt<=0){toast('Enter a valid weight');return;}
+  if(draft.srcPkgs.find(p=>p.tag===tag)){toast('Tag already added');return;}
+  const pkg={tag,weight:wt};
+  if(isDownstream){
+    const bid=document.getElementById('p-batchid')?.value.trim();
+    if(!bid){toast('Enter the source batch ID');return;}
+    pkg.srcBatchId=bid;
+  }
+  draft.srcPkgs.push(pkg);
+  document.getElementById('p-tag').value='';
+  document.getElementById('p-wt').value='';
+  if(isDownstream){const b=document.getElementById('p-batchid');if(b)b.value='';}
+  renderWiz();
+  setTimeout(()=>document.getElementById('p-tag')?.focus(),50);
+}
+function rmPkg(i){draft.srcPkgs.splice(i,1);renderWiz();}
+
+/* Step 4 — Output */
+function s4(c,a){
+  document.getElementById('hdr-title').textContent='Output';
+  const route=ROUTES[draft.route];
+  const isDiam=draft.route==='diamonds';
+  const isVape=VAPE_ROUTES.includes(draft.route);
+  const y=draft.outWeight?calcY(draft.outWeight,draft.totalIn):0;
+  const col=yColor(y,draft.route);
+
+  c.innerHTML=`
+    <div class="ydisplay">
+      <div class="ypct" id="ypct" style="color:${y>0?col:'var(--text3)'}">${y>0?y.toFixed(2)+'%':'—'}</div>
+      <div class="ysub">${route?.label} Yield</div>
+      <div class="yform" id="yform">${y>0?`${(draft.outWeight||0).toFixed(1)}g ÷ ${(draft.totalIn||0).toFixed(1)}g`:'Enter output weight below'}</div>
+    </div>
+    <div class="sec" style="margin-top:0;">Assign Product Tag</div>
+    <div class="fg">
+      <label class="flabel">${route?.label} Tag # <span class="req">*</span></label>
+      <div class="sg">
+        <input id="out-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" value="${draft.outTag}" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:12px" oninput="draft.outTag=this.value">
+        <div class="scanbtn" onclick="openScanner('out-tag')">${barIcon()}</div>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="flabel">${route?.label} Weight (g) <span class="req">*</span></label>
+      <input id="out-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${draft.outWeight||''}" inputmode="decimal" oninput="draft.outWeight=parseFloat(this.value)||0;liveY()">
+    </div>
+    ${isDiam?`
+      <div class="fg">
+        <label class="flabel">HTE Weight Remaining (g)</label>
+        <input id="hte-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${draft.hteWeight||''}" inputmode="decimal" oninput="draft.hteWeight=parseFloat(this.value)||0">
+        <div class="fhint">Stays on crude tag — not a new METRC package</div>
+      </div>`:''}
+    ${isVape?`
+      <div class="fg">
+        <label class="flabel">Flavor / SKU Name${draft.route==='ld-vape'?' <span class="req">*</span>':''}</label>
+        <input id="out-flav" class="fi" type="text" placeholder="e.g. OG, Watermelon, Sour Apple" value="${draft.flavor}" oninput="draft.flavor=this.value${draft.route==='ld-vape'?';updateLdvBatchId()':''}">
+        ${draft.route==='ld-vape'?`<div class="fhint" id="ldv-bid-hint" style="margin-top:5px;">Batch ID preview: <span style="color:var(--accent);font-weight:500;">${draft.flavor?draft.flavor.replace(/[^a-zA-Z0-9]/g,'').substring(0,4).toUpperCase()+'-'+getRouteCode('ld-vape')+'-'+dateCode(draft.date):'enter flavor above'}</span></div>`:''}
+      </div>
+      <div class="sec">Additional Flavors / SKUs</div>
+      <div id="extra-list">${(draft.extraOuts||[]).map((o,i)=>`
+        <div class="pitem" style="margin-bottom:5px;">
+          <div style="flex:1;min-width:0;"><div style="font-family:var(--mono);font-size:11px;color:var(--text2)">${o.tag}</div><div style="font-size:12px;margin-top:1px">${o.flavor||'No flavor'} · ${o.weight}g</div></div>
+          <span class="prm" onclick="rmExtra(${i})">✕</span>
+        </div>`).join('')}</div>
+      <button class="addbtn" onclick="toggleFlavorForm()">+ Add Another Flavor / SKU</button>
+      <div id="flavor-form" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:8px;">
+        <div class="fg"><label class="flabel">Flavor / SKU</label><input id="xf-flav" class="fi" type="text" placeholder="Flavor name"></div>
+        <div class="fg"><label class="flabel">Tag #</label>
+          <div class="sg"><input id="xf-tag" class="fi mono" type="text" placeholder="1A400…" maxlength="24" style="font-size:12px">
+            <div class="scanbtn" onclick="openScanner('xf-tag')">${barIcon()}</div>
+          </div></div>
+        <div class="fg"><label class="flabel">Weight (g)</label><input id="xf-wt" class="fi" type="number" placeholder="0.0" step="0.01" inputmode="decimal"></div>
+        <button class="btn bs" style="padding:9px" onclick="addExtra()">Save</button>
+      </div>`:''}
+    <div class="fg" style="margin-top:10px;">
+      <label class="flabel">Notes (optional)</label>
+      <input id="out-notes" class="fi" type="text" placeholder="Run notes…" value="${draft.notes}" oninput="draft.notes=this.value">
+    </div>`;
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()">Review →</button></div>`;
+}
+
+function liveY(){
+  const y=calcY(draft.outWeight,draft.totalIn);
+  const col=yColor(y,draft.route);
+  const p=document.getElementById('ypct');const f=document.getElementById('yform');
+  if(p){p.textContent=y.toFixed(2)+'%';p.style.color=col;}
+  if(f)f.textContent=`${(draft.outWeight||0).toFixed(1)}g ÷ ${(draft.totalIn||0).toFixed(1)}g`;
+}
+function updateLdvBatchId(){
+  const hint=document.getElementById('ldv-bid-hint');
+  if(!hint)return;
+  const flav=draft.flavor||'';
+  const sc=flav.replace(/[^a-zA-Z0-9]/g,'').substring(0,4).toUpperCase();
+  hint.innerHTML=`Batch ID preview: <span style="color:var(--accent);font-weight:500;">${sc?sc+'-'+getRouteCode('ld-vape')+'-'+dateCode(draft.date):'enter flavor above'}</span>`;
+}
+
+function toggleFlavorForm(){
+  const f=document.getElementById('flavor-form');
+  if(f)f.style.display=f.style.display==='none'?'block':'none';
+}
+function addExtra(){
+  const flav=document.getElementById('xf-flav')?.value.trim()||'';
+  const tag=document.getElementById('xf-tag')?.value.trim()||'';
+  const wt=parseFloat(document.getElementById('xf-wt')?.value)||0;
+  if(!tag||tag.length!==24){toast('Enter valid 24-char tag');return;}
+  if(!wt){toast('Enter weight');return;}
+  draft.extraOuts.push({flavor:flav,tag,weight:wt});
+  renderWiz();
+}
+function rmExtra(i){draft.extraOuts.splice(i,1);renderWiz();}
+
+/* Step 5 — Summary */
+function s5(c,a){
+  document.getElementById('hdr-title').textContent='Confirm & Save';
+  const route=ROUTES[draft.route];
+  const y=calcY(draft.outWeight,draft.totalIn);
+  const col=yColor(y,draft.route);
+  const bid=makeBatchId(draft.strainCode,draft.route,draft.date);
+  draft.batchId=bid;
+
+  const srcRows=draft.srcPkgs.map(p=>`
+    <div class="srow"><span class="skey">Src Tag</span><span class="sval" style="font-size:10.5px">${p.tag}</span></div>
+    <div class="srow"><span class="skey">Src Wt</span><span class="sval">${p.weight}g</span></div>`).join('');
+  const pRows=draft.parentIds.map(pid=>{
+    const pb=batches.find(b=>b.id===pid);
+    return pb?`<div class="srow"><span class="skey">Source</span><span class="sval">${pb.batchId}</span></div>`:'';
+  }).join('');
+  const xRows=(draft.extraOuts||[]).map(o=>`
+    <div class="srow"><span class="skey">${o.flavor||'Output'} Tag</span><span class="sval" style="font-size:10.5px">${o.tag}</span></div>
+    <div class="srow"><span class="skey">${o.flavor||'Output'} Wt</span><span class="sval">${o.weight}g</span></div>`).join('');
+
+  c.innerHTML=`
+    <div class="ydisplay">
+      <div class="ypct" style="color:${col}">${y.toFixed(2)}%</div>
+      <div class="ysub">${route?.label} Yield</div>
+      <div class="yform">${(draft.outWeight||0).toFixed(1)}g ÷ ${(draft.totalIn||0).toFixed(1)}g</div>
+    </div>
+    <div class="card nc">
+      <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500">${bid}</span></div>
+      ${draft.route!=='diamonds'?`<div class="srow"><span class="skey">Strain</span><span class="sval">${draft.strain}</span></div>`:''}
+      <div class="srow"><span class="skey">Product</span><span class="sval">${route?.label}</span></div>
+      ${draft.biomassType?`<div class="srow"><span class="skey">Biomass</span><span class="sval">${bLabel(draft.biomassType)}</span></div>`:''}
+      <div class="srow"><span class="skey">Date</span><span class="sval">${fmtDate(draft.date)}</span></div>
+      <div class="srow"><span class="skey">Tech</span><span class="sval">${draft.tech}</span></div>
+      ${srcRows}${pRows}
+      <div class="srow"><span class="skey">Total Input</span><span class="sval">${(draft.totalIn||0).toFixed(1)}g</span></div>
+      <div class="srow"><span class="skey">Product Tag</span><span class="sval" style="font-size:10.5px">${draft.outTag}</span></div>
+      <div class="srow"><span class="skey">Product Weight</span><span class="sval">${(draft.outWeight||0).toFixed(1)}g</span></div>
+      ${draft.hteWeight?`<div class="srow"><span class="skey">HTE Wt</span><span class="sval">${draft.hteWeight}g</span></div>`:''}
+      ${draft.flavor?`<div class="srow"><span class="skey">Flavor</span><span class="sval">${draft.flavor}</span></div>`:''}
+      ${xRows}
+      ${draft.notes?`<div class="srow"><span class="skey">Notes</span><span class="sval">${draft.notes}</span></div>`:''}
+    </div>`;
+  a.innerHTML=`<div class="btns">
+    <button class="btn bp" onclick="saveBatch('active')">Save as In Progress</button>
+    <button class="btn bs" onclick="saveBatch('complete')">Save as Complete</button>
+    <button class="btn bg2" onclick="wStep=4;renderWiz()">← Edit Output</button>
+  </div>`;
+}
+
+/* Advance step with validation */
+function next(){
+  if(wStep===1&&!draft.route){toast('Select a product type');return;}
+  if(wStep===2){
+    const stage=ROUTES[draft.route]?.stage||1;
+    if(stage===1){
+      const str=document.getElementById('f-strain')?.value.trim();
+      const cod=document.getElementById('f-code')?.value.trim().toUpperCase();
+      const tch=document.getElementById('f-tech')?.value.trim();
+      const dt=document.getElementById('f-date')?.value;
+      if(!str){toast('Enter strain name');return;}
+      if(!cod||cod.length<2){toast('Enter strain code');return;}
+      if(!tch){toast('Enter tech name');return;}
+      // Biomass: inferred or selected
+      if(!BIOMASS_INFER[draft.route]){
+        const bio=document.getElementById('f-bio')?.value;
+        if(!bio){toast('Select biomass type');return;}
+        draft.biomassType=bio;
+      }
+      draft.strain=str;draft.strainCode=cod;draft.date=dt;draft.tech=tch;
+      if(!draft.biomassType&&BIOMASS_INFER[draft.route])draft.biomassType=BIOMASS_INFER[draft.route].v;
+      localStorage.setItem('hc_tech',tch);
+    } else {
+      const dt=document.getElementById('f-date')?.value;
+      const tch=document.getElementById('f-tech')?.value.trim();
+      if(!tch){toast('Enter tech name');return;}
+      draft.date=dt;draft.tech=tch;
+      // Only pick up strain fields if the form rendered them
+      const strDs=document.getElementById('f-strain-ds')?.value.trim();
+      const codDs=document.getElementById('f-code-ds')?.value.trim().toUpperCase();
+      if(strDs)draft.strain=strDs;
+      if(codDs)draft.strainCode=codDs;
+      localStorage.setItem('hc_tech',tch);
+    }
+  }
+  if(wStep===3){
+    // Require at least one source package regardless of stage
+    if(!draft.srcPkgs.length){toast('Add at least one source package');return;}
+    draft.totalIn=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
+  }
+  if(wStep===4){
+    if(!draft.outTag||draft.outTag.length!==24){toast('Output tag must be 24 characters');return;}
+    if(!draft.outWeight||draft.outWeight<=0){toast('Enter output weight');return;}
+    // ld-vape: derive 4-char strain code from flavor field
+    if(draft.route==='ld-vape'){
+      const flav=document.getElementById('out-flav')?.value.trim()||draft.flavor||'';
+      draft.flavor=flav;
+      if(flav){
+        draft.strainCode=flav.replace(/[^a-zA-Z0-9]/g,'').substring(0,4).toUpperCase();
+      }
+    }
+  }
+  wStep++;renderWiz();
+}
+
+async function saveBatch(status='active'){
+  const y=calcY(draft.outWeight,draft.totalIn);
+  const b={
+    id:uid(),
+    batchId:draft.batchId||makeBatchId(draft.strainCode,draft.route,draft.date),
+    route:draft.route,strain:draft.strain,strainCode:draft.strainCode,
+    biomassType:draft.biomassType,date:draft.date,tech:draft.tech,
+    srcPkgs:[...draft.srcPkgs],parentIds:[...draft.parentIds],
+    totalIn:draft.totalIn,outTag:draft.outTag,outWeight:draft.outWeight,
+    outWeightInitial:draft.outWeight,
+    hteWeight:draft.hteWeight,flavor:draft.flavor,
+    extraOuts:[...(draft.extraOuts||[])],
+    yieldPct:y,notes:draft.notes,status,
+    createdAt:Date.now(),deviceId,facility:FACILITY_ID
+  };
+  await saveDoc(b);
+  if(status==='complete'){
+    document.getElementById('cn-bid').textContent=b.batchId;
+    document.getElementById('cn-tag').textContent=`Tag: ${b.outTag||'—'}`;
+    _completedBatchId=b.id;
+    document.getElementById('complete-notice').classList.add('vis');
+  } else {
+    toast('✓ Batch saved · In Progress');
+  }
+  goTo('dashboard');
+}
+
+/* ============================================================
+   SCANNER
+============================================================ */
+function barIcon(){return`<svg viewBox="0 0 24 24"><rect x="2" y="3" width="5" height="18" rx="1"/><rect x="9" y="3" width="2" height="18" rx="0.5"/><rect x="13" y="3" width="3" height="18" rx="0.5"/><rect x="18" y="3" width="4" height="18" rx="1"/></svg>`;}
+
+function openScanner(targetId){
+  scanCB=tag=>{
+    const el=document.getElementById(targetId);
+    if(el){el.value=tag;el.dispatchEvent(new Event('input'));}
+    if(targetId==='out-tag')draft.outTag=tag;
+    closeScanner();toast('Tag scanned ✓');
+  };
+  document.getElementById('scan-ov').classList.add('act');
+  startQR();
+}
+
+function startQR(){
+  try{
+    if(qrCode){qrCode.stop().catch(()=>{});}
+    qrCode=new Html5Qrcode('reader');
+    const fmts=window.Html5QrcodeSupportedFormats
+      ?[Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39,Html5QrcodeSupportedFormats.QR_CODE]
+      :undefined;
+    qrCode.start(
+      {facingMode:'environment'},
+      {fps:12,qrbox:{width:280,height:80},...(fmts?{formatsToSupport:fmts}:{})},
+      decoded=>{if(scanCB)scanCB(decoded);},
+      ()=>{}
+    ).catch(e=>{
+      console.warn('Scanner:',e);
+      document.getElementById('scan-hint').textContent='CAMERA UNAVAILABLE — ENTER MANUALLY';
+    });
+  }catch(e){console.warn('Scanner init:',e);}
+}
+
+function closeScanner(){
+  document.getElementById('scan-ov').classList.remove('act');
+  if(qrCode){qrCode.stop().catch(()=>{});qrCode=null;}
+  scanCB=null;
+}
+
+/* ============================================================
+   SEARCH
+============================================================ */
+function openSearch(){
+  document.getElementById('search-ov').classList.add('act');
+  document.getElementById('search-results').innerHTML=`<div class="search-empty">Enter batch ID or tag number<br>or scan a barcode</div>`;
+  document.getElementById('search-input').value='';
+  setTimeout(()=>document.getElementById('search-input')?.focus(),80);
+}
+function closeSearch(){document.getElementById('search-ov').classList.remove('act');}
+
+function openSearchScanner(){
+  scanCB=tag=>{
+    document.getElementById('search-input').value=tag;
+    runSearch(tag);
+  };
+  document.getElementById('scan-ov').classList.add('act');
+  startQR();
+}
+
+function runSearch(q){
+  const raw=(q||'').trim();
+  const el=document.getElementById('search-results');
+  if(raw.length<2){
+    el.innerHTML=`<div class="search-empty">Enter batch ID or tag number<br>or scan a barcode</div>`;
+    return;
+  }
+  const term=raw.toUpperCase();
+
+  function matchesBatch(b){
+    // Exact or partial batch ID
+    if(b.batchId&&b.batchId.toUpperCase().includes(term))return true;
+    // Full tag (24 chars)
+    if(term.length===24){
+      if(b.outTag===raw)return true;
+      if((b.srcPkgs||[]).some(p=>p.tag===raw))return true;
+      if((b.extraOuts||[]).some(o=>o.tag===raw))return true;
+    }
+    // Last N digits of any tag (≤8 chars, all digits)
+    if(/^\d+$/.test(term)&&term.length<=8){
+      const tail=term;
+      if(b.outTag&&b.outTag.endsWith(tail))return true;
+      if((b.srcPkgs||[]).some(p=>p.tag&&p.tag.endsWith(tail)))return true;
+      if((b.extraOuts||[]).some(o=>o.tag&&o.tag.endsWith(tail)))return true;
+    }
+    return false;
+  }
+
+  const active=batches.filter(b=>b.status==='active'&&matchesBatch(b));
+  const complete=batches.filter(b=>b.status==='complete'&&matchesBatch(b));
+
+  if(!active.length&&!complete.length){
+    el.innerHTML=`<div class="search-empty">No batches found for "${raw}"</div>`;
+    return;
+  }
+
+  let html='';
+  if(active.length){
+    html+=`<div class="search-section-label">Active (${active.length})</div>`;
+    html+=active.map(b=>searchCard(b)).join('');
+  }
+  if(complete.length){
+    html+=`<div class="search-section-label">Completed (${complete.length})</div>`;
+    html+=complete.map(b=>searchCard(b)).join('');
+  }
+  el.innerHTML=html;
+}
+
+function searchCard(b){
+  const r=ROUTES[b.route];
+  const y=b.yieldPct||0;
+  const tagLine=b.outTag||'—';
+  return`<div class="card" onclick="closeSearch();viewBatch('${b.id}')">
+    <div class="card-row">
+      <div style="min-width:0;flex:1;">
+        <div style="font-family:var(--mono);font-size:13px;font-weight:500;">${b.batchId}</div>
+        <div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;">${tagLine}</div>
+        <div class="card-sub" style="margin-top:3px;">${b.strain?b.strain+' · ':''}${r?.label||''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <span class="badge ${yBadge(y,b.route)}">${y.toFixed(1)}%</span>
+        <span style="font-family:var(--mono);font-size:10px;color:${b.status==='active'?'var(--amber)':'var(--text3)'}">${b.status==='active'?'In Progress':'Complete'}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   DEVICE ID & AUTH
+============================================================ */
+const deviceId=(()=>{
+  let id=localStorage.getItem('hc_device_id');
+  if(!id){
+    id='DEV-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+    localStorage.setItem('hc_device_id',id);
+  }
+  return id;
+})();
+
+function checkAuth(){
+  // Show device ID on auth screen
+  const didEl=document.getElementById('auth-device-id');
+  if(didEl)didEl.textContent=deviceId;
+  const stored=localStorage.getItem('hc_auth');
+  if(stored===btoa(FACILITY_CODE)){
+    bootApp();
+  } else {
+    document.getElementById('auth-screen').style.display='flex';
+  }
+}
+function submitCode(){
+  const val=document.getElementById('auth-code').value.trim();
+  if(!val){toast('Enter facility code');return;}
+  if(val===FACILITY_CODE){
+    localStorage.setItem('hc_auth',btoa(FACILITY_CODE));
+    document.getElementById('auth-screen').style.display='none';
+    bootApp();
+  } else {
+    document.getElementById('auth-error').textContent='Incorrect code — try again';
+    document.getElementById('auth-code').value='';
+    document.getElementById('auth-code').focus();
+  }
+}
+document.getElementById('auth-code').addEventListener('keydown',e=>{if(e.key==='Enter')submitCode();});
+
+function bootApp(){
+  settings=JSON.parse(localStorage.getItem('hc_settings')||'{}');
+  resetDraft();
+  goTo('dashboard');
+  // Enable offline persistence then start listener
+  db.enablePersistence({synchronizeTabs:true}).catch(()=>{})
+    .finally(()=>startListener());
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+checkAuth();
+
+</script>
+</body>
+</html>
