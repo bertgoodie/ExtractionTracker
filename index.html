@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>HC Extract · METRC Batch Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<!-- Barcode scanner -->
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 /* ── Auth screen ── */
-#auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;align-items:center;justify-content:center;padding:24px;flex-direction:column;gap:0;}
+#auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;align-items:center;justify-content:center;padding:24px;flex-direction:column;}
 .auth-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:28px 24px;width:100%;max-width:340px;}
 .auth-logo{width:44px;height:44px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
 .auth-logo svg{width:24px;height:24px;fill:#0d1410;}
@@ -304,7 +302,7 @@ select.fi option{background:#1a2420;}
     <div id="auth-error"></div>
     <div class="fg" style="margin-bottom:12px;">
       <label class="flabel">Facility Code</label>
-      <input id="auth-code" class="fi" type="password" placeholder="Enter code…" autocomplete="off" autocorrect="off">
+      <input id="auth-code" class="fi" type="password" placeholder="Enter code…" autocomplete="off">
     </div>
     <button class="btn bp" onclick="submitCode()">Enter</button>
     <div class="device-id-strip">
@@ -315,7 +313,190 @@ select.fi option{background:#1a2420;}
 </div>
 
 
-</div><!-- #app -->
+  <header id="hdr">
+    <button id="hdr-back" onclick="handleBack()">←</button>
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
+    <span id="hdr-title">HC Extract</span>
+    <button class="hdr-icon" onclick="openSearch()" title="Search batches">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+  </header>
+
+  <div id="screens">
+    <div id="screen-dashboard" class="screen active">
+      <div class="dash-strip" style="margin-top:0;"><div class="ds-label">Biomass · Today</div><div class="ds-line"></div></div>
+      <div id="stats-biomass" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Downstream · Today</div><div class="ds-line"></div></div>
+      <div id="stats-downstream" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Active Batches</div><div class="ds-line"></div><button class="view-all-btn" onclick="goTo('active-log')">View All →</button></div>
+      <div id="dash-active"></div>
+      <div class="dash-strip"><div class="ds-label">Recently Completed</div><div class="ds-line"></div></div>
+      <div id="dash-recent"></div>
+    </div>
+
+    <div id="screen-active-log" class="screen">
+      <div id="active-log-content"></div>
+    </div>
+
+    <div id="screen-edit-batch" class="screen">
+      <div id="edit-content"></div>
+    </div>
+
+    <div id="screen-new-batch" class="screen">
+      <div class="steps" id="step-dots"></div>
+      <div id="wiz-content"></div>
+      <div id="wiz-actions"></div>
+    </div>
+
+    <div id="screen-history" class="screen">
+      <div class="fg" style="margin-bottom:12px;">
+        <select class="fi" id="hist-filter" onchange="renderHistory()" style="font-size:13px;">
+          <option value="">All Products</option>
+          <option value="crude">Crude Oil</option>
+          <option value="live-badder">Live Badder</option>
+          <option value="cured-badder">Cured Badder</option>
+          <option value="diamonds">Diamonds / THCa</option>
+          <option value="liquid-diamonds">Liquid Diamonds</option>
+          <option value="ld-vape">Liquid Diamond Vape</option>
+          <option value="lr-vape">Live Resin Vape</option>
+          <option value="cr-vape">Cured Resin Vape</option>
+        </select>
+      </div>
+      <div id="hist-list"></div>
+    </div>
+
+    <div id="screen-batch-detail" class="screen">
+      <div id="detail-content"></div>
+    </div>
+
+    <div id="screen-settings" class="screen">
+      <div class="sec" style="margin-top:0;">Product Codes</div>
+      <p style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px;line-height:1.7;">USED IN BATCH ID GENERATION · DIAMONDS IS ALWAYS THCa-POW</p>
+      <div id="code-cards"></div>
+      <div class="sec">Yield Thresholds</div>
+      <p style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px;line-height:1.7;">MINIMUM % FOR EACH TIER · GREEN = GOOD · AMBER = OK · RED = LOW</p>
+      <div id="thresh-cards"></div>
+      <div class="btns">
+        <button class="btn bp" onclick="saveSettings()">Save All Settings</button>
+        <button class="btn bg2" onclick="resetSettings()">Reset to Defaults</button>
+      </div>
+    </div>
+  </div>
+
+  <nav id="bnav">
+    <div class="ntab act" id="ntab-dashboard" onclick="goTo('dashboard')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>Dashboard</span>
+    </div>
+    <div class="ntab fab-tab" onclick="startNewBatch()">
+      <div class="fab"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+    </div>
+    <div class="ntab" id="ntab-history" onclick="goTo('history')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 15.5"/></svg>
+      <span>History</span>
+    </div>
+    <div class="ntab" id="ntab-settings" onclick="goTo('settings')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span>
+    </div>
+  </nav>
+</div>
+
+<!-- Complete notification -->
+<div id="complete-notice">
+  <div class="cn-box">
+    <div class="cn-icon">📋</div>
+    <div class="cn-title">Confirm Before Closing in METRC</div>
+    <div class="cn-bid" id="cn-bid"></div>
+    <div class="cn-tag" id="cn-tag"></div>
+    <div class="cn-msg" style="text-align:left;">
+      Before finalizing this production batch in METRC, verify the following:
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px;">
+        <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--accent);flex-shrink:0;font-weight:600;">✓</span><span>All source package tags and input weights are recorded correctly</span></div>
+        <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--accent);flex-shrink:0;font-weight:600;">✓</span><span>Output tag is assigned and matches the physical package label</span></div>
+        <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--accent);flex-shrink:0;font-weight:600;">✓</span><span>Final output weight reflects current package mass after purge</span></div>
+        <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--accent);flex-shrink:0;font-weight:600;">✓</span><span>Product type, strain, and batch ID match what is entered in METRC</span></div>
+      </div>
+    </div>
+    <button class="btn bp" onclick="closeCN()" style="margin-top:4px;">Confirmed — Close</button>
+  </div>
+</div>
+
+<!-- Weight adjustment modal -->
+<div id="wadj-modal">
+  <div class="confirm-box" style="max-width:380px;">
+    <p style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">Adjust Weight</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button id="wadj-add-btn" class="btn bg2" style="flex:1;padding:10px;" onclick="setWadjType('add')">+ Add Mass</button>
+      <button id="wadj-sub-btn" class="btn bg2" style="flex:1;padding:10px;" onclick="setWadjType('subtract')">− Subtract Mass</button>
+    </div>
+    <div class="fg">
+      <label class="flabel">Amount (g) <span class="req">*</span></label>
+      <input id="wadj-amount" class="fi" type="number" step="0.01" min="0.01" placeholder="0.00" inputmode="decimal" oninput="updateWadjPreview()">
+    </div>
+    <div class="fg">
+      <label class="flabel">Reason <span class="req">*</span></label>
+      <input id="wadj-reason" class="fi" type="text" placeholder="e.g. Post-purge weigh-in, transfer loss, moisture…" autocomplete="off" oninput="updateWadjPreview()">
+    </div>
+    <div id="wadj-preview" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;display:none;">
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;margin-bottom:4px;">
+        <span style="color:var(--text2);">Before</span><span id="wadj-before">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;margin-bottom:4px;">
+        <span style="color:var(--text2);">Change</span><span id="wadj-delta" style="font-weight:500;">—</span>
+      </div>
+      <div style="height:1px;background:var(--border);margin:6px 0;"></div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:14px;font-weight:500;">
+        <span>After</span><span id="wadj-after" style="color:var(--accent);">—</span>
+      </div>
+    </div>
+    <div class="confirm-btns">
+      <button class="btn bg2" onclick="closeWadj()">Cancel</button>
+      <button class="btn bp" id="wadj-confirm-btn" onclick="confirmWadj()" disabled>Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div id="confirm-modal">
+  <div class="confirm-box">
+    <p id="confirm-msg"></p>
+    <div class="confirm-btns">
+      <button class="btn bg2" onclick="cancelConfirm()">Cancel</button>
+      <button class="btn bdr" id="confirm-ok" onclick="doConfirm()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Search overlay -->
+<div id="search-ov">
+  <div id="search-bar">
+    <div class="scanbtn" onclick="openSearchScanner()" style="flex-shrink:0;">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="5" height="18" rx="1"/><rect x="9" y="3" width="2" height="18" rx="0.5"/><rect x="13" y="3" width="3" height="18" rx="0.5"/><rect x="18" y="3" width="4" height="18" rx="1"/></svg>
+    </div>
+    <input id="search-input" type="text" placeholder="Batch ID, last 6 digits of tag, or full tag…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="runSearch(this.value)">
+    <button class="hdr-icon" onclick="closeSearch()" style="border:none;">✕</button>
+  </div>
+  <div id="search-results">
+    <div class="search-empty">Enter batch ID or tag number<br>or scan a barcode</div>
+  </div>
+</div>
+
+<!-- Scanner -->
+<div id="scan-ov">
+  <div id="scan-hdr">
+    <span id="scan-label">SCAN METRC TAG · CODE 128</span>
+    <div id="scan-x" onclick="closeScanner()">✕</div>
+  </div>
+  <div id="scan-body">
+    <div id="reader"></div>
+    <p id="scan-hint">ALIGN BARCODE WITHIN FRAME</p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+</body>
 
 <script>
 /* ============================================================
@@ -1799,9 +1980,6 @@ const deviceId=(()=>{
 })();
 
 function checkAuth(){
-  // Show device ID on auth screen
-  const didEl=document.getElementById('auth-device-id');
-  if(didEl)didEl.textContent=deviceId;
   const stored=localStorage.getItem('hc_auth');
   if(stored===btoa(FACILITY_CODE)){
     bootApp();
@@ -1825,18 +2003,10 @@ function submitCode(){
 document.getElementById('auth-code').addEventListener('keydown',e=>{if(e.key==='Enter')submitCode();});
 
 function bootApp(){
-  try{
-    settings=JSON.parse(localStorage.getItem('hc_settings')||'{}');
-  }catch(e){settings={};}
+  try{settings=JSON.parse(localStorage.getItem('hc_settings')||'{}');}catch(e){settings={};}
   resetDraft();
   goTo('dashboard');
-  // Start Firestore listener — skip persistence to avoid browser compatibility issues
-  try{
-    startListener();
-  }catch(e){
-    console.error('Firestore listener failed:',e);
-    toast('⚠ Could not connect to database — check connection');
-  }
+  try{startListener();}catch(e){console.error('Firestore listener failed:',e);toast('⚠ Could not connect to database');}
 }
 
 /* ============================================================
@@ -1845,5 +2015,4 @@ function bootApp(){
 checkAuth();
 
 </script>
-</body>
 </html>
