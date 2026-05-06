@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.1/umd/index.min.js"></script>
 <style>
 /* ── Auth screen ── */
 #auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;align-items:center;justify-content:center;padding:24px;flex-direction:column;}
@@ -489,7 +489,7 @@ select.fi option{background:#1a2420;}
     <div id="scan-x" onclick="closeScanner()">✕</div>
   </div>
   <div id="scan-body">
-    <div id="reader"></div>
+    <video id="scan-video" style="width:100%;max-width:360px;border-radius:8px;background:#000;" playsinline autoplay muted></video>
     <p id="scan-hint">ALIGN BARCODE WITHIN FRAME</p>
   </div>
 </div>
@@ -594,7 +594,8 @@ let curScreen = 'dashboard';
 let wStep = 1;
 let draft = {};
 let scanCB = null;
-let qrCode = null;
+let zxingReader = null;
+let zxingControls = null;
 let confirmCB = null;
 
 function resetDraft() {
@@ -1881,32 +1882,60 @@ function openScanner(targetId){
     closeScanner();toast('Tag scanned ✓');
   };
   document.getElementById('scan-ov').classList.add('act');
-  startQR();
+  startZxing();
 }
 
-function startQR(){
+async function startZxing(){
+  const hint=document.getElementById('scan-hint');
+  const video=document.getElementById('scan-video');
   try{
-    if(qrCode){qrCode.stop().catch(()=>{});}
-    qrCode=new Html5Qrcode('reader');
-    const fmts=window.Html5QrcodeSupportedFormats
-      ?[Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39,Html5QrcodeSupportedFormats.QR_CODE]
-      :undefined;
-    qrCode.start(
-      {facingMode:'environment'},
-      {fps:12,qrbox:{width:280,height:80},...(fmts?{formatsToSupport:fmts}:{})},
-      decoded=>{if(scanCB)scanCB(decoded);},
-      ()=>{}
-    ).catch(e=>{
-      console.warn('Scanner:',e);
-      document.getElementById('scan-hint').textContent='CAMERA UNAVAILABLE — ENTER MANUALLY';
-    });
-  }catch(e){console.warn('Scanner init:',e);}
+    // Stop any existing session
+    if(zxingControls){try{zxingControls.stop();}catch(e){}zxingControls=null;}
+
+    // ZXing reader — hints tell it to prioritize Code 128
+    const hints=new Map();
+    if(window.ZXingBrowser){
+      hints.set(2,[1,6,8,11]); // BarcodeFormat: CODE_128, CODE_39, EAN_13, QR_CODE
+    }
+
+    zxingReader=new ZXingBrowser.BrowserMultiFormatReader(hints);
+
+    hint.textContent='Starting camera…';
+
+    // Get rear camera
+    const devices=await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+    const rear=devices.find(d=>
+      /back|rear|environment/i.test(d.label)
+    ) || devices[devices.length-1] || devices[0];
+
+    const deviceId=rear?.deviceId;
+
+    zxingControls=await zxingReader.decodeFromVideoDevice(
+      deviceId||undefined,
+      video,
+      (result,err)=>{
+        if(result){
+          const text=result.getText();
+          if(text&&scanCB){scanCB(text);}
+        }
+        // err fires continuously when nothing is in frame — ignore
+      }
+    );
+    hint.textContent='ALIGN BARCODE WITHIN FRAME · CODE 128';
+  }catch(e){
+    console.error('ZXing scanner error:',e);
+    hint.textContent='CAMERA ERROR: '+e.message+' — ENTER TAG MANUALLY';
+  }
 }
 
 function closeScanner(){
   document.getElementById('scan-ov').classList.remove('act');
-  if(qrCode){qrCode.stop().catch(()=>{});qrCode=null;}
+  if(zxingControls){try{zxingControls.stop();}catch(e){}zxingControls=null;}
+  zxingReader=null;
   scanCB=null;
+  // Clear video srcObject to release camera
+  const v=document.getElementById('scan-video');
+  if(v&&v.srcObject){v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null;}
 }
 
 /* ============================================================
@@ -1926,7 +1955,7 @@ function openSearchScanner(){
     runSearch(tag);
   };
   document.getElementById('scan-ov').classList.add('act');
-  startQR();
+  startZxing();
 }
 
 function runSearch(q){
