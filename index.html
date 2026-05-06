@@ -588,8 +588,8 @@ const BIOMASS_OPTIONS = {
 /* ============================================================
    STATE
 ============================================================ */
-let batches  = JSON.parse(localStorage.getItem('hc_batches')  || '[]');
-let settings = JSON.parse(localStorage.getItem('hc_settings') || '{}');
+let batches  = [];            // populated by Firestore onSnapshot
+let settings = {};            // loaded in bootApp from localStorage
 let curScreen = 'dashboard';
 let wStep = 1;
 let draft = {};
@@ -684,7 +684,36 @@ function toast(msg,ms=2300){
   el.textContent=msg;el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),ms);
 }
-function save(){localStorage.setItem('hc_batches',JSON.stringify(batches));}
+/* ============================================================
+   FIRESTORE DATA LAYER
+============================================================ */
+function startListener(){
+  db.collection('batches')
+    .orderBy('createdAt','desc')
+    .onSnapshot(snap=>{
+      batches=snap.docs.map(d=>d.data());
+      refreshCurrentScreen();
+    }, err=>{
+      console.error('Listener error',err);
+      toast('⚠ Connection issue — data may be stale');
+    });
+}
+function refreshCurrentScreen(){
+  if(curScreen==='dashboard')renderDash();
+  else if(curScreen==='history')renderHistory();
+  else if(curScreen==='active-log')renderActiveLog();
+}
+async function saveDoc(b){
+  try{await db.collection('batches').doc(b.id).set(b);}
+  catch(e){toast('⚠ Save failed — check connection');console.error(e);}
+}
+async function deleteDoc(id){
+  try{await db.collection('batches').doc(id).delete();}
+  catch(e){toast('⚠ Delete failed');console.error(e);}
+}
+function saveSettings(){
+  localStorage.setItem('hc_settings',JSON.stringify(settings));
+}
 
 /* ============================================================
    CONFIRM MODAL
