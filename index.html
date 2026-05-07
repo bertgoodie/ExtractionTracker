@@ -7,7 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://unpkg.com/@zxing/browser@0.1.1/umd/index.min.js"></script>
+<!-- BarcodeDetector is native in Chrome. ZXing is the Safari/iOS fallback -->
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
 <style>
 /* ── Auth screen ── */
 #auth-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;align-items:center;justify-content:center;padding:24px;flex-direction:column;}
@@ -522,12 +523,12 @@ const db = firebase.firestore();
 
 const ROUTES = {
   'crude':           {label:'Crude Oil',           code:'CRUDE', stage:1, icon:'🛢',  desc:'Trim  ·  inferred from product'},
-  'live-badder':     {label:'Live Badder',          code:'LBAD',  stage:1, icon:'🍯',  desc:'Whole Plant Fresh Frozen  ·  inferred'},
-  'cured-badder':    {label:'Cured Badder',         code:'CBAD',  stage:1, icon:'🍯',  desc:'Cured Flower  ·  inferred from product'},
-  'diamonds':        {label:'Diamonds / THCa',      code:'THCa',  stage:2, icon:'💎',  desc:'Crude → Diamonds  ·  HTE stays on crude tag'},
+  'live-badder':     {label:'Live Badder',          code:'LBDR',  stage:1, icon:'🍯',  desc:'Whole Plant Fresh Frozen  ·  inferred'},
+  'cured-badder':    {label:'Cured Badder',         code:'CBDR',  stage:1, icon:'🍯',  desc:'Cured Flower  ·  inferred from product'},
+  'diamonds':        {label:'Diamonds / THCa',      code:'DMND',  stage:2, icon:'💎',  desc:'Crude → Diamonds  ·  HTE stays on crude tag'},
   'lr-vape':         {label:'Live Resin Vape',      code:'LRV',   stage:2, icon:'🌿',  desc:'Live Badder → Live Resin Vape Cartridges'},
   'cr-vape':         {label:'Cured Resin Vape',     code:'CRV',   stage:2, icon:'🌾',  desc:'Crude / Cured Badder → Cured Resin Vape Cartridges'},
-  'liquid-diamonds': {label:'Liquid Diamonds',      code:'LD',  stage:3, icon:'💧',  desc:'Diamonds → Liquid Diamonds'},
+  'liquid-diamonds': {label:'Liquid Diamonds',      code:'LQDM',  stage:3, icon:'💧',  desc:'Diamonds → Liquid Diamonds'},
   'ld-vape':         {label:'Liquid Diamond Vape',  code:'LDV',   stage:3, icon:'💨',  desc:'Liquid Diamonds → Vape Cartridges  ·  multiple flavors'},
 };
 
@@ -594,8 +595,8 @@ let curScreen = 'dashboard';
 let wStep = 1;
 let draft = {};
 let scanCB = null;
-let zxingReader = null;
-let zxingControls = null;
+let scanStream  = null;   // MediaStream from getUserMedia
+let scanActive  = false;  // controls the rAF decode loop
 let confirmCB = null;
 
 function resetDraft() {
@@ -1882,60 +1883,96 @@ function openScanner(targetId){
     closeScanner();toast('Tag scanned ✓');
   };
   document.getElementById('scan-ov').classList.add('act');
-  startZxing();
+  startScanner();
 }
 
-async function startZxing(){
-  const hint=document.getElementById('scan-hint');
+async function startScanner(){
   const video=document.getElementById('scan-video');
+  const hint=document.getElementById('scan-hint');
+
   try{
-    // Stop any existing session
-    if(zxingControls){try{zxingControls.stop();}catch(e){}zxingControls=null;}
-
-    // ZXing reader — hints tell it to prioritize Code 128
-    const hints=new Map();
-    if(window.ZXingBrowser){
-      hints.set(2,[1,6,8,11]); // BarcodeFormat: CODE_128, CODE_39, EAN_13, QR_CODE
-    }
-
-    zxingReader=new ZXingBrowser.BrowserMultiFormatReader(hints);
-
     hint.textContent='Starting camera…';
 
-    // Get rear camera
-    const devices=await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
-    const rear=devices.find(d=>
-      /back|rear|environment/i.test(d.label)
-    ) || devices[devices.length-1] || devices[0];
+    // ── Path A: Native BarcodeDetector (Chrome, Edge, Samsung Browser) ──
+    if('BarcodeDetector' in window){
+      scanStream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
+      });
+      video.srcObject=scanStream;
+      await new Promise(res=>{video.onloadedmetadata=res;});
+      await video.play();
 
-    const deviceId=rear?.deviceId;
+      const supported=await BarcodeDetector.getSupportedFormats();
+      const wanted=['code_128','code_39','qr_code'].filter(f=>supported.includes(f));
+      const detector=new BarcodeDetector({formats:wanted.length?wanted:supported});
 
-    zxingControls=await zxingReader.decodeFromVideoDevice(
-      deviceId||undefined,
-      video,
-      (result,err)=>{
-        if(result){
-          const text=result.getText();
-          if(text&&scanCB){scanCB(text);}
+      hint.textContent='ALIGN BARCODE WITHIN FRAME';
+      scanActive=true;
+
+      const detect=async()=>{
+        if(!scanActive)return;
+        if(video.readyState>=2){
+          try{
+            const results=await detector.detect(video);
+            if(results.length>0&&scanCB){
+              scanActive=false;
+              scanCB(results[0].rawValue);
+              return;
+            }
+          }catch(e){}
         }
-        // err fires continuously when nothing is in frame — ignore
-      }
-    );
-    hint.textContent='ALIGN BARCODE WITHIN FRAME · CODE 128';
+        if(scanActive)requestAnimationFrame(detect);
+      };
+      requestAnimationFrame(detect);
+
+    // ── Path B: ZXing (Safari/iOS, Firefox) ──
+    } else if(window.ZXing){
+      scanStream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
+      });
+      video.srcObject=scanStream;
+      await new Promise(res=>{video.onloadedmetadata=res;});
+      await video.play();
+
+      hint.textContent='ALIGN BARCODE WITHIN FRAME';
+      scanActive=true;
+
+      // decodeFromStream fires the callback continuously until reader.reset() is called
+      const reader=new ZXing.BrowserMultiFormatReader();
+      window._zxingInst=reader;
+      reader.decodeFromStream(scanStream,video,(result,err)=>{
+        if(result&&scanCB&&scanActive){
+          scanActive=false;
+          scanCB(result.getText());
+        }
+        // NotFoundException fires every frame when nothing detected — safe to ignore
+      });
+
+    // ── Path C: No scanner support ──
+    } else {
+      hint.textContent='BARCODE SCANNER NOT SUPPORTED — ENTER TAG MANUALLY';
+    }
+
   }catch(e){
-    console.error('ZXing scanner error:',e);
-    hint.textContent='CAMERA ERROR: '+e.message+' — ENTER TAG MANUALLY';
+    console.error('Scanner error:',e);
+    if(e.name==='NotAllowedError'){
+      hint.textContent='CAMERA PERMISSION DENIED — CHECK BROWSER SETTINGS AND TRY AGAIN';
+    } else {
+      hint.textContent='CAMERA ERROR — ENTER TAG MANUALLY';
+    }
   }
 }
 
 function closeScanner(){
+  scanActive=false;
   document.getElementById('scan-ov').classList.remove('act');
-  if(zxingControls){try{zxingControls.stop();}catch(e){}zxingControls=null;}
-  zxingReader=null;
-  scanCB=null;
-  // Clear video srcObject to release camera
+  // Stop ZXing reader if it was used (Safari path)
+  if(window._zxingInst){try{window._zxingInst.reset();}catch(e){}window._zxingInst=null;}
+  // Release camera stream
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}
   const v=document.getElementById('scan-video');
-  if(v&&v.srcObject){v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null;}
+  if(v){v.pause();v.srcObject=null;}
+  scanCB=null;
 }
 
 /* ============================================================
@@ -1955,7 +1992,7 @@ function openSearchScanner(){
     runSearch(tag);
   };
   document.getElementById('scan-ov').classList.add('act');
-  startZxing();
+  startScanner();
 }
 
 function runSearch(q){
