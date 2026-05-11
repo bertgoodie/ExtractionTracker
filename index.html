@@ -1015,8 +1015,9 @@ function editBatch(id){
         <div id="e-add-pkg-form" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:8px;">
           <div class="fg">
             <label class="flabel">Tag #</label>
-            <div class="sg"><input id="e-new-tag" class="fi mono" type="text" placeholder="1A4…" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" style="font-size:12px">
+            <div class="sg"><input id="e-new-tag" class="fi mono" type="text" placeholder="1A4…" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" style="font-size:12px" oninput="lookupEditTag(this.value)">
               <div class="scanbtn" onclick="openScanner('e-new-tag')">${barIcon()}</div></div>
+            <div class="fhint" id="e-new-tag-hint"></div>
           </div>
           ${isDownstream?`<div class="fg"><label class="flabel">Source Batch ID</label>
             <input id="e-new-bid" class="fi mono" type="text" placeholder="APFR-CRUDE-050426" style="font-size:13px"></div>`:''}
@@ -1049,6 +1050,24 @@ async function removeEditSrcPkg(i){
   b.totalIn=(b.srcPkgs||[]).reduce((s,p)=>s+(p.weight||0),0)||b.totalIn;
   await saveDoc(b);editBatch(_editBatchId);
 }
+function lookupEditTag(val){
+  const bidEl=document.getElementById('e-new-bid');
+  const hint=document.getElementById('e-new-tag-hint');
+  if(!hint)return;
+  const match=batches.find(b=>b.outTag===val.trim());
+  if(match){
+    if(bidEl)bidEl.value=match.batchId;
+    const avail=(match.outWeight||0).toFixed(2);
+    const product=ROUTES[match.route]?.label||match.route;
+    const strain=match.strain?match.strain+' · ':'';
+    hint.innerHTML=`<span style="color:var(--accent)">✓ ${strain}${product}</span> · Available: <span style="color:var(--text);font-weight:500;">${avail}g</span>`;
+  } else if(val.length===24){
+    hint.innerHTML=`<span style="color:var(--text3)">Not found in saved batches — enter batch ID manually</span>`;
+  } else {
+    hint.textContent='';
+  }
+}
+
 function toggleEditAddPkg(){
   const f=document.getElementById('e-add-pkg-form');
   if(f)f.style.display=f.style.display==='none'?'block':'none';
@@ -1607,16 +1626,28 @@ function s3(c,a){
             <span class="prm" onclick="rmPkg(${i})">✕</span></div>`).join('')
         :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No packages added yet</p>`}
       </div>`;
-    // Auto-suggest batch ID from saved batches when tag is entered
+    // Auto-lookup: when tag is entered, show source batch info + available weight
     setTimeout(()=>{
       const tagEl=document.getElementById('p-tag');
       const bidEl=document.getElementById('p-batchid');
+      const wtEl=document.getElementById('p-wt');
       const hint=document.getElementById('p-batchid-hint');
       if(tagEl&&bidEl){
         tagEl.addEventListener('input',()=>{
-          const match=batches.find(b=>b.outTag===tagEl.value.trim());
-          if(match){bidEl.value=match.batchId;if(hint)hint.textContent='✓ Auto-filled from saved batch';}
-          else{if(hint)hint.textContent='';}
+          const val=tagEl.value.trim();
+          const match=batches.find(b=>b.outTag===val);
+          if(match){
+            bidEl.value=match.batchId;
+            const avail=(match.outWeight||0).toFixed(2);
+            const product=ROUTES[match.route]?.label||match.route;
+            const strain=match.strain?match.strain+' · ':'';
+            if(hint)hint.innerHTML=`<span style="color:var(--accent)">✓ ${strain}${product}</span> · Available: <span style="color:var(--text);font-weight:500;">${avail}g</span>`;
+          } else if(val.length===24){
+            // Full tag entered but not found in saved batches
+            if(hint)hint.innerHTML=`<span style="color:var(--text3)">Tag not found in saved batches — enter batch ID and weight manually</span>`;
+          } else {
+            if(hint)hint.textContent='';
+          }
         });
         document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')addPkg(true);});
       }
