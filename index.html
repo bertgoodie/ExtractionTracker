@@ -864,11 +864,7 @@ function renderInventory(){
           <div class="inv-wt-val" style="color:${barCol}">${remaining.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div>
         </div>
       </div>
-      <div class="inv-bar" style="margin-bottom:8px;"><div class="inv-bar-fill" style="width:${Math.min(pct,100)}%;background:${barCol};"></div></div>
-      <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
-        <button class="btn bs" style="flex:1;padding:8px;font-size:12px;" onclick="openWadj('${b.id}','outWeight','Package Weight',false,()=>{renderDash();})">+ Add Mass</button>
-        <button class="btn bs" style="flex:1;padding:8px;font-size:12px;" onclick="openWadj('${b.id}','outWeight','Package Weight',true,()=>{renderDash();})">− Subtract Mass</button>
-      </div>
+      <div class="inv-bar"><div class="inv-bar-fill" style="width:${Math.min(pct,100)}%;background:${barCol};"></div></div>
     </div>`;
   }).join('');
 }
@@ -1376,6 +1372,12 @@ function viewBatch(id){
     </div>
     ${pkgRows?`<div class="sec">Source Packages</div><div class="plist">${pkgRows}</div>`:''}
     ${histHtml}
+    ${INVENTORY_ROUTES.includes(b.route)?`
+    <div class="sec">Adjust Package Weight</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button class="btn bs" style="flex:1;" onclick="openWadj('${b.id}','outWeight','Package Weight',false,()=>{viewBatch('${b.id}');})">+ Add Mass</button>
+      <button class="btn bs" style="flex:1;" onclick="openWadj('${b.id}','outWeight','Package Weight',true,()=>{viewBatch('${b.id}');})">− Subtract Mass</button>
+    </div>`:''}
     <div class="btns">
       ${b.status==='active'?`
         <button class="btn bp" onclick="markComplete('${b.id}')">✓ Mark Complete</button>
