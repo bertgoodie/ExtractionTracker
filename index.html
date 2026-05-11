@@ -806,13 +806,16 @@ const INVENTORY_ROUTES=['crude','live-badder','cured-badder'];
 
 function getCrudeRemaining(b){
   // Sum all downstream batches that pulled from this batch's output tag
-  const consumed=batches
+  const netConsumed=batches
     .filter(x=>x.srcPkgs&&x.srcPkgs.some(p=>p.tag===b.outTag))
     .reduce((sum,x)=>{
       const p=x.srcPkgs.find(p=>p.tag===b.outTag);
-      return sum+(p?.weight||0);
+      const pulled=p?.weight||0;
+      // If this is a diamonds batch and HTE stays on crude tag, add it back
+      const hteReturned=(x.route==='diamonds'&&!x.hteNewTag)?(x.hteWeight||0):0;
+      return sum+(pulled-hteReturned);
     },0);
-  return Math.max(0,(b.outWeight||0)-consumed);
+  return Math.max(0,(b.outWeight||0)-netConsumed);
 }
 
 function renderInventory(){
@@ -1793,7 +1796,12 @@ function s3(c,a){
       },30);
     }
   }
-  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${draft.srcPkgs.length===0?'disabled':''}>Continue →</button></div>`;
+  // Diamonds: fields are committed in next() — button is always enabled
+  // Other downstream: require at least one added package
+  const isDiamBtn=draft.route==='diamonds';
+  const stage1Btn=ROUTES[draft.route]?.stage===1;
+  const disabledAttr=(!isDiamBtn&&!stage1Btn&&draft.srcPkgs.length===0)?'disabled':'';
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${disabledAttr}>Continue →</button></div>`;
 }
 
 function onDiamTagInput(val){
