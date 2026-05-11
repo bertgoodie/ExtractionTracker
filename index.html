@@ -605,6 +605,7 @@ function resetDraft() {
     date:todayStr(), tech:localStorage.getItem('hc_tech')||'',
     srcPkgs:[], totalIn:0,
     outTag:'', outWeight:0, hteWeight:0,
+    hteNewTag:false, hteTag:'', hteBatchId:'',
     flavor:'', extraOuts:[],
     parentIds:[], batchId:'', notes:''
   };
@@ -805,7 +806,7 @@ function renderDash(){
   // Downstream
   const diamBatch=todayAll.filter(b=>b.route==='diamonds');
   const diamG=diamBatch.reduce((s,b)=>s+(b.outWeight||0),0);
-  const hteG=diamBatch.reduce((s,b)=>s+(b.hteWeight||0),0);
+  const hteG=diamBatch.filter(b=>!b.hteNewTag).reduce((s,b)=>s+(b.hteWeight||0),0);
   const lqdG=todayAll.filter(b=>b.route==='liquid-diamonds').reduce((s,b)=>s+(b.outWeight||0),0);
   const vapeToday=todayAll.filter(b=>VAPE_ROUTES.includes(b.route));
   const vapeG=vapeToday.reduce((s,b)=>s+totalVapeWeight(b),0);
@@ -1265,7 +1266,11 @@ function viewBatch(id){
       <div class="srow"><span class="skey">Total Input</span><span class="sval">${(b.totalIn||0).toFixed(1)}g</span></div>
       <div class="srow"><span class="skey">Product Weight</span><span class="sval">${(b.outWeight||0).toFixed(1)}g</span></div>
       ${b.outWeightInitial&&b.outWeightInitial!==b.outWeight?`<div class="srow"><span class="skey">Initial Wt</span><span class="sval">${b.outWeightInitial.toFixed(1)}g <span style="color:var(--amber)">(-${(b.outWeightInitial-b.outWeight).toFixed(1)}g purge)</span></span></div>`:''}
-      ${b.hteWeight?`<div class="srow"><span class="skey">HTE Wt (crude tag)</span><span class="sval">${b.hteWeight}g</span></div>`:''}
+      ${b.hteNewTag&&b.hteTag?`
+        <div class="srow"><span class="skey">HTE Batch ID</span><span class="sval accent" style="font-size:11px">${b.hteBatchId||'THCa-HTE-'+dateCode(b.date)}</span></div>
+        <div class="srow"><span class="skey">HTE Tag</span><span class="sval" style="font-size:11px">${b.hteTag}</span></div>
+        <div class="srow"><span class="skey">HTE Weight</span><span class="sval">${b.hteWeight}g</span></div>
+      `:b.hteWeight?`<div class="srow"><span class="skey">HTE Wt (crude tag)</span><span class="sval">${b.hteWeight}g</span></div>`:''}
       ${b.flavor?`<div class="srow"><span class="skey">Flavor</span><span class="sval">${b.flavor}</span></div>`:''}
       ${extraRows}
       ${b.notes?`<div class="srow"><span class="skey">Notes</span><span class="sval">${b.notes}</span></div>`:''}
@@ -1706,10 +1711,45 @@ function s4(c,a){
       <input id="out-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${draft.outWeight||''}" inputmode="decimal" oninput="draft.outWeight=parseFloat(this.value)||0;liveY()">
     </div>
     ${isDiam?`
-      <div class="fg">
-        <label class="flabel">HTE Weight Remaining (g)</label>
-        <input id="hte-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${draft.hteWeight||''}" inputmode="decimal" oninput="draft.hteWeight=parseFloat(this.value)||0">
-        <div class="fhint">Stays on crude tag — not a new METRC package</div>
+      <div style="margin-top:4px;padding-top:14px;border-top:1px solid var(--border);">
+        <div class="sec" style="margin-top:0;">HTE Disposition</div>
+        <div class="fg">
+          <label class="flabel">HTE Weight (g) <span class="req">*</span></label>
+          <input id="hte-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${draft.hteWeight||''}" inputmode="decimal" oninput="draft.hteWeight=parseFloat(this.value)||0">
+          <div class="fhint">Total HTE produced from this extraction</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;margin-bottom:8px;" onclick="toggleHteNewTag()">
+          <div id="hte-checkbox" style="width:20px;height:20px;border:1.5px solid var(--border2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.15s;${draft.hteNewTag?'background:var(--accent);border-color:var(--accent);color:#0d1410;':''}">${draft.hteNewTag?'✓':''}</div>
+          <div>
+            <div style="font-size:13px;font-weight:500;">Assign HTE to new tag</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:1px;">Uncheck to keep HTE on crude tag</div>
+          </div>
+        </div>
+        <div id="hte-tag-fields" style="display:${draft.hteNewTag?'block':'none'};">
+          <div class="fg">
+            <label class="flabel">HTE Tag # <span class="req">*</span></label>
+            <div class="sg">
+              <input id="hte-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" value="${draft.hteTag||''}" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:12px" oninput="draft.hteTag=this.value">
+              <div class="scanbtn" onclick="openScanner('hte-tag')">${barIcon()}</div>
+            </div>
+          </div>
+        </div>
+        ${!draft.hteNewTag?`
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Remaining on each crude tag</div>
+          ${draft.srcPkgs.map(p=>{
+            const srcBatch=batches.find(b=>b.outTag===p.tag);
+            const origWt=srcBatch?srcBatch.outWeight:0;
+            const unprocessed=Math.max(0,origWt-p.weight);
+            const hteShare=draft.hteWeight||0;
+            const remaining=(unprocessed+hteShare).toFixed(2);
+            return`<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:3px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;max-width:55%;">···${p.tag.slice(-8)}</span>
+              <span style="color:var(--text);">${remaining}g remaining</span>
+            </div>`;
+          }).join('')}
+          <div style="font-size:10px;color:var(--text3);margin-top:6px;">Unprocessed crude + HTE = remaining weight on tag</div>
+        </div>`:''}
       </div>`:''}
     ${isVape?`
       <div class="fg">
@@ -1740,6 +1780,15 @@ function s4(c,a){
   a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()">Review →</button></div>`;
 }
 
+function toggleHteNewTag(){
+  draft.hteNewTag=!draft.hteNewTag;
+  const cb=document.getElementById('hte-checkbox');
+  const fields=document.getElementById('hte-tag-fields');
+  if(cb){cb.style.background=draft.hteNewTag?'var(--accent)':'';cb.style.borderColor=draft.hteNewTag?'var(--accent)':'var(--border2)';cb.style.color=draft.hteNewTag?'#0d1410':'transparent';cb.textContent=draft.hteNewTag?'✓':'';}
+  if(fields)fields.style.display=draft.hteNewTag?'block':'none';
+  // Re-render crude remaining preview
+  s4(document.getElementById('wiz-content'),document.getElementById('wiz-actions'));
+}
 function liveY(){
   const y=calcY(draft.outWeight,draft.totalIn);
   const col=yColor(y,draft.route);
@@ -1774,21 +1823,64 @@ function rmExtra(i){draft.extraOuts.splice(i,1);renderWiz();}
 function s5(c,a){
   document.getElementById('hdr-title').textContent='Confirm & Save';
   const route=ROUTES[draft.route];
+  const isDiam=draft.route==='diamonds';
   const y=calcY(draft.outWeight,draft.totalIn);
   const col=yColor(y,draft.route);
   const bid=makeBatchId(draft.strainCode,draft.route,draft.date);
   draft.batchId=bid;
 
+  // ── Standard summary rows ──
   const srcRows=draft.srcPkgs.map(p=>`
     <div class="srow"><span class="skey">Src Tag</span><span class="sval" style="font-size:10.5px">${p.tag}</span></div>
-    <div class="srow"><span class="skey">Src Wt</span><span class="sval">${p.weight}g</span></div>`).join('');
-  const pRows=draft.parentIds.map(pid=>{
-    const pb=batches.find(b=>b.id===pid);
-    return pb?`<div class="srow"><span class="skey">Source</span><span class="sval">${pb.batchId}</span></div>`:'';
-  }).join('');
+    ${p.srcBatchId?`<div class="srow"><span class="skey">Src Batch</span><span class="sval" style="font-size:11px">${p.srcBatchId}</span></div>`:''}
+    <div class="srow"><span class="skey">Src Weight</span><span class="sval">${p.weight}g</span></div>`).join('');
+
   const xRows=(draft.extraOuts||[]).map(o=>`
     <div class="srow"><span class="skey">${o.flavor||'Output'} Tag</span><span class="sval" style="font-size:10.5px">${o.tag}</span></div>
     <div class="srow"><span class="skey">${o.flavor||'Output'} Wt</span><span class="sval">${o.weight}g</span></div>`).join('');
+
+  // ── Diamonds-specific full breakdown ──
+  const diamondsSummary=isDiam?`
+    <div class="sec" style="margin-top:0;">Diamonds Output</div>
+    <div class="card nc" style="margin-bottom:10px;">
+      <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500;">${bid}</span></div>
+      <div class="srow"><span class="skey">Product Tag</span><span class="sval" style="font-size:11px;">${draft.outTag}</span></div>
+      <div class="srow"><span class="skey">Diamonds Weight</span><span class="sval">${(draft.outWeight||0).toFixed(2)}g</span></div>
+      <div class="srow"><span class="skey">Yield</span><span class="sval" style="color:${col};">${y.toFixed(2)}%</span></div>
+    </div>
+
+    ${draft.hteNewTag?`
+    <div class="sec">HTE Output — New Tag</div>
+    <div class="card nc" style="margin-bottom:10px;">
+      <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500;">${draft.hteBatchId}</span></div>
+      <div class="srow"><span class="skey">HTE Tag</span><span class="sval" style="font-size:11px;">${draft.hteTag}</span></div>
+      <div class="srow"><span class="skey">HTE Weight</span><span class="sval">${(draft.hteWeight||0).toFixed(2)}g</span></div>
+    </div>`:`
+    <div class="sec">HTE — Stays on Crude Tag(s)</div>
+    <div class="card nc" style="margin-bottom:10px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;padding:8px 0 6px;">HTE Weight: ${(draft.hteWeight||0).toFixed(2)}g · distributed across source tags</div>
+      ${draft.srcPkgs.map(p=>{
+        const srcBatch=batches.find(b=>b.outTag===p.tag);
+        const origWt=srcBatch?srcBatch.outWeight:0;
+        const unprocessed=Math.max(0,origWt-p.weight);
+        const remaining=(unprocessed+(draft.hteWeight||0)).toFixed(2);
+        const srcBid=p.srcBatchId||(srcBatch?srcBatch.batchId:'—');
+        return`<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+          <div class="srow" style="padding:2px 0;"><span class="skey">Source Batch</span><span class="sval" style="font-size:11px;color:var(--accent);">${srcBid}</span></div>
+          <div class="srow" style="padding:2px 0;"><span class="skey">Crude Tag</span><span class="sval" style="font-size:11px;">${p.tag}</span></div>
+          <div class="srow" style="padding:2px 0;"><span class="skey">Crude Used</span><span class="sval">${p.weight}g</span></div>
+          <div class="srow" style="padding:2px 0;border-bottom:none;"><span class="skey">Remaining on Tag</span><span class="sval" style="color:var(--amber);font-weight:500;">${remaining}g</span></div>
+        </div>`;
+      }).join('')}
+    </div>`}
+
+    <div class="sec">Run Info</div>
+    <div class="card nc">
+      <div class="srow"><span class="skey">Date</span><span class="sval">${fmtDate(draft.date)}</span></div>
+      <div class="srow"><span class="skey">Tech</span><span class="sval">${draft.tech}</span></div>
+      <div class="srow"><span class="skey">Total Crude In</span><span class="sval">${(draft.totalIn||0).toFixed(2)}g</span></div>
+      ${draft.notes?`<div class="srow"><span class="skey">Notes</span><span class="sval">${draft.notes}</span></div>`:''}
+    </div>`:null;
 
   c.innerHTML=`
     <div class="ydisplay">
@@ -1796,6 +1888,7 @@ function s5(c,a){
       <div class="ysub">${route?.label} Yield</div>
       <div class="yform">${(draft.outWeight||0).toFixed(1)}g ÷ ${(draft.totalIn||0).toFixed(1)}g</div>
     </div>
+    ${isDiam ? diamondsSummary : `
     <div class="card nc">
       <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500">${bid}</span></div>
       ${draft.route!=='diamonds'?`<div class="srow"><span class="skey">Strain</span><span class="sval">${draft.strain}</span></div>`:''}
@@ -1803,15 +1896,15 @@ function s5(c,a){
       ${draft.biomassType?`<div class="srow"><span class="skey">Biomass</span><span class="sval">${bLabel(draft.biomassType)}</span></div>`:''}
       <div class="srow"><span class="skey">Date</span><span class="sval">${fmtDate(draft.date)}</span></div>
       <div class="srow"><span class="skey">Tech</span><span class="sval">${draft.tech}</span></div>
-      ${srcRows}${pRows}
+      ${srcRows}
       <div class="srow"><span class="skey">Total Input</span><span class="sval">${(draft.totalIn||0).toFixed(1)}g</span></div>
       <div class="srow"><span class="skey">Product Tag</span><span class="sval" style="font-size:10.5px">${draft.outTag}</span></div>
       <div class="srow"><span class="skey">Product Weight</span><span class="sval">${(draft.outWeight||0).toFixed(1)}g</span></div>
-      ${draft.hteWeight?`<div class="srow"><span class="skey">HTE Wt</span><span class="sval">${draft.hteWeight}g</span></div>`:''}
       ${draft.flavor?`<div class="srow"><span class="skey">Flavor</span><span class="sval">${draft.flavor}</span></div>`:''}
       ${xRows}
       ${draft.notes?`<div class="srow"><span class="skey">Notes</span><span class="sval">${draft.notes}</span></div>`:''}
-    </div>`;
+    </div>`}`;
+
   a.innerHTML=`<div class="btns">
     <button class="btn bp" onclick="saveBatch('active')">Save as In Progress</button>
     <button class="btn bs" onclick="saveBatch('complete')">Save as Complete</button>
@@ -1860,15 +1953,24 @@ function next(){
     draft.totalIn=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
   }
   if(wStep===4){
-    if(!draft.outTag||draft.outTag.length!==24){toast('Output tag must be 24 characters');return;}
+    if(!draft.outTag||draft.outTag.length!==24){toast('Product tag must be 24 characters');return;}
     if(!draft.outWeight||draft.outWeight<=0){toast('Enter output weight');return;}
-    // ld-vape: derive 4-char strain code from flavor field
+    // HTE fields
+    if(draft.route==='diamonds'){
+      const hteWt=parseFloat(document.getElementById('hte-wt')?.value)||0;
+      draft.hteWeight=hteWt;
+      if(draft.hteNewTag){
+        const hteTag=document.getElementById('hte-tag')?.value.trim();
+        if(!hteTag||hteTag.length!==24){toast('HTE tag must be 24 characters');return;}
+        draft.hteTag=hteTag;
+        draft.hteBatchId=`THCa-HTE-${dateCode(draft.date)}`;
+      }
+    }
+    // ld-vape: derive strain code from flavor
     if(draft.route==='ld-vape'){
       const flav=document.getElementById('out-flav')?.value.trim()||draft.flavor||'';
       draft.flavor=flav;
-      if(flav){
-        draft.strainCode=flav.replace(/[^a-zA-Z0-9]/g,'').substring(0,4).toUpperCase();
-      }
+      if(flav)draft.strainCode=flav.replace(/[^a-zA-Z0-9]/g,'').substring(0,4).toUpperCase();
     }
   }
   wStep++;renderWiz();
@@ -1884,7 +1986,9 @@ async function saveBatch(status='active'){
     srcPkgs:[...draft.srcPkgs],parentIds:[...draft.parentIds],
     totalIn:draft.totalIn,outTag:draft.outTag,outWeight:draft.outWeight,
     outWeightInitial:draft.outWeight,
-    hteWeight:draft.hteWeight,flavor:draft.flavor,
+    hteWeight:draft.hteWeight,hteNewTag:draft.hteNewTag,
+    hteTag:draft.hteTag,hteBatchId:draft.hteBatchId,
+    flavor:draft.flavor,
     extraOuts:[...(draft.extraOuts||[])],
     yieldPct:y,notes:draft.notes,status,
     createdAt:Date.now(),deviceId,facility:FACILITY_ID
