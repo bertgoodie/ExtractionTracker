@@ -864,7 +864,11 @@ function renderInventory(){
           <div class="inv-wt-val" style="color:${barCol}">${remaining.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div>
         </div>
       </div>
-      <div class="inv-bar"><div class="inv-bar-fill" style="width:${Math.min(pct,100)}%;background:${barCol};"></div></div>
+      <div class="inv-bar" style="margin-bottom:8px;"><div class="inv-bar-fill" style="width:${Math.min(pct,100)}%;background:${barCol};"></div></div>
+      <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
+        <button class="btn bs" style="flex:1;padding:8px;font-size:12px;" onclick="openWadj('${b.id}','outWeight','Package Weight',false,()=>{renderDash();})">+ Add Mass</button>
+        <button class="btn bs" style="flex:1;padding:8px;font-size:12px;" onclick="openWadj('${b.id}','outWeight','Package Weight',true,()=>{renderDash();})">− Subtract Mass</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1220,10 +1224,10 @@ async function saveEdit(id){
 /* ============================================================
    WEIGHT ADJUSTMENT MODAL
 ============================================================ */
-let _wadjBatchId=null, _wadjField=null, _wadjSubtract=false;
+let _wadjBatchId=null, _wadjField=null, _wadjSubtract=false, _wadjReturnFn=null;
 
-function openWadj(id, field, label, subtract=false){
-  _wadjBatchId=id; _wadjField=field; _wadjSubtract=subtract;
+function openWadj(id, field, label, subtract=false, returnFn=null){
+  _wadjBatchId=id; _wadjField=field; _wadjSubtract=subtract; _wadjReturnFn=returnFn;
   document.getElementById('wadj-amount').value='';
   document.getElementById('wadj-reason').value='';
   document.getElementById('wadj-preview').style.display='none';
@@ -1289,7 +1293,9 @@ async function confirmWadj(){
   await saveDoc(b);
   closeWadj();
   toast((_wadjSubtract?'−':'+')+''+amt.toFixed(2)+'g recorded');
-  editBatch(_wadjBatchId);
+  // Return to whatever called openWadj (edit screen, inventory, batch detail)
+  if(_wadjReturnFn) _wadjReturnFn();
+  else editBatch(_wadjBatchId);
 }
 
 
