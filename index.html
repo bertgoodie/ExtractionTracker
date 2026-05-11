@@ -270,6 +270,20 @@ select.fi option{background:#1a2420;}
 .whist-reason{font-size:13px;color:var(--text);}
 .whist-meta{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;}
 
+/* Inventory card */
+.inv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s;}
+.inv-card:active{border-color:var(--border2);}
+.inv-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.inv-id{font-family:var(--mono);font-size:13px;font-weight:500;}
+.inv-tag{font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;}
+.inv-wts{display:flex;gap:0;background:var(--bg3);border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:8px;}
+.inv-wt{flex:1;padding:8px 10px;text-align:center;border-right:1px solid var(--border);}
+.inv-wt:last-child{border-right:none;}
+.inv-wt-label{font-family:var(--mono);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.inv-wt-val{font-family:var(--mono);font-size:16px;font-weight:500;}
+.inv-bar{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;}
+.inv-bar-fill{height:100%;border-radius:2px;transition:width 0.4s;background:var(--accent);}
+
 /* Search overlay */
 #search-ov{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
 #search-ov.act{display:flex;}
@@ -329,6 +343,8 @@ select.fi option{background:#1a2420;}
       <div id="stats-biomass" class="sgrid"></div>
       <div class="dash-strip"><div class="ds-label">Downstream · Today</div><div class="ds-line"></div></div>
       <div id="stats-downstream" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Crude &amp; Badder Inventory</div><div class="ds-line"></div></div>
+      <div id="dash-inventory"></div>
       <div class="dash-strip"><div class="ds-label">Active Batches</div><div class="ds-line"></div><button class="view-all-btn" onclick="goTo('active-log')">View All →</button></div>
       <div id="dash-active"></div>
       <div class="dash-strip"><div class="ds-label">Recently Completed</div><div class="ds-line"></div></div>
@@ -702,7 +718,7 @@ function startListener(){
     });
 }
 function refreshCurrentScreen(){
-  if(curScreen==='dashboard')renderDash();
+  if(curScreen==='dashboard'){renderDash();renderInventory();}
   else if(curScreen==='history')renderHistory();
   else if(curScreen==='active-log')renderActiveLog();
 }
@@ -784,6 +800,73 @@ function handleBack(){
 }
 
 /* ============================================================
+   CRUDE & BADDER INVENTORY
+============================================================ */
+const INVENTORY_ROUTES=['crude','live-badder','cured-badder'];
+
+function getCrudeRemaining(b){
+  // Sum all downstream batches that pulled from this batch's output tag
+  const consumed=batches
+    .filter(x=>x.srcPkgs&&x.srcPkgs.some(p=>p.tag===b.outTag))
+    .reduce((sum,x)=>{
+      const p=x.srcPkgs.find(p=>p.tag===b.outTag);
+      return sum+(p?.weight||0);
+    },0);
+  return Math.max(0,(b.outWeight||0)-consumed);
+}
+
+function renderInventory(){
+  const el=document.getElementById('dash-inventory');
+  if(!el)return;
+
+  const inv=batches
+    .filter(b=>INVENTORY_ROUTES.includes(b.route))
+    .map(b=>({...b,remaining:getCrudeRemaining(b)}))
+    .filter(b=>b.remaining>0)
+    .sort((a,c)=>c.createdAt-a.createdAt);
+
+  if(!inv.length){
+    el.innerHTML=`<p style="font-family:var(--mono);font-size:11px;color:var(--text3);padding-bottom:4px;">No crude or badder inventory — all product consumed or none created yet</p>`;
+    return;
+  }
+
+  el.innerHTML=inv.map(b=>{
+    const r=ROUTES[b.route];
+    const orig=b.outWeight||0;
+    const remaining=b.remaining;
+    const consumed=orig-remaining;
+    const pct=orig>0?(consumed/orig)*100:0;
+    // Colour shifts amber when >50% consumed, red when >85%
+    const barCol=pct>=85?'var(--red)':pct>=50?'var(--amber)':'var(--accent)';
+    return`<div class="inv-card" onclick="viewBatch('${b.id}')">
+      <div class="inv-header">
+        <div style="min-width:0;flex:1;">
+          <div class="inv-id">${b.batchId}</div>
+          ${b.outTag?`<div class="inv-tag">${b.outTag}</div>`:''}
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">${b.strain?b.strain+' · ':''}${r?.label||''} · ${fmtDate(b.date)}</div>
+        </div>
+        <span class="badge ${remaining<orig*0.2?'br':remaining<orig*0.5?'ba':'bg'}" style="white-space:nowrap;">${remaining.toFixed(1)}g left</span>
+      </div>
+      <div class="inv-wts">
+        <div class="inv-wt">
+          <div class="inv-wt-label">Original</div>
+          <div class="inv-wt-val">${orig.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div>
+        </div>
+        <div class="inv-wt">
+          <div class="inv-wt-label">Consumed</div>
+          <div class="inv-wt-val" style="color:var(--text2)">${consumed.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div>
+        </div>
+        <div class="inv-wt">
+          <div class="inv-wt-label">Remaining</div>
+          <div class="inv-wt-val" style="color:${barCol}">${remaining.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div>
+        </div>
+      </div>
+      <div class="inv-bar"><div class="inv-bar-fill" style="width:${Math.min(pct,100)}%;background:${barCol};"></div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ============================================================
    DASHBOARD
 ============================================================ */
 function renderDash(){
@@ -806,19 +889,26 @@ function renderDash(){
   // Downstream
   const diamBatch=todayAll.filter(b=>b.route==='diamonds');
   const diamG=diamBatch.reduce((s,b)=>s+(b.outWeight||0),0);
-  const hteG=diamBatch.filter(b=>!b.hteNewTag).reduce((s,b)=>s+(b.hteWeight||0),0);
+  const hteOnCrudeG=diamBatch.filter(b=>!b.hteNewTag).reduce((s,b)=>s+(b.hteWeight||0),0);
+  const hteNewTagG=diamBatch.filter(b=>b.hteNewTag).reduce((s,b)=>s+(b.hteWeight||0),0);
+  const hteG=hteOnCrudeG+hteNewTagG;
   const lqdG=todayAll.filter(b=>b.route==='liquid-diamonds').reduce((s,b)=>s+(b.outWeight||0),0);
   const vapeToday=todayAll.filter(b=>VAPE_ROUTES.includes(b.route));
   const vapeG=vapeToday.reduce((s,b)=>s+totalVapeWeight(b),0);
 
   const dashVal=(g,unit='g')=>g>0?`${g.toFixed(1)}<span class="sunit">${unit}</span>`:`<span style="color:var(--text3);font-size:16px;">—</span>`;
+  const hteLabel=hteNewTagG>0&&hteOnCrudeG>0
+    ?`🛢 HTE (${hteOnCrudeG.toFixed(1)}g crude + ${hteNewTagG.toFixed(1)}g new)`
+    :hteNewTagG>0?'🛢 HTE (new tag)':'🛢 HTE (crude tag)';
 
   document.getElementById('stats-downstream').innerHTML=`
     <div class="scard"><div class="slabel">💎 Diamonds</div><div class="sval sm">${dashVal(diamG)}</div></div>
-    <div class="scard"><div class="slabel">🛢 HTE Collected</div><div class="sval sm">${dashVal(hteG)}</div></div>
+    <div class="scard"><div class="slabel" style="font-size:8px;">${hteLabel}</div><div class="sval sm">${dashVal(hteG)}</div></div>
     <div class="scard"><div class="slabel">💧 Liq Diamonds</div><div class="sval sm">${dashVal(lqdG)}</div></div>
     <div class="scard"><div class="slabel">💨 Vape Out</div><div class="sval sm">${vapeG>0?`${vapeG.toFixed(1)}<span class="sunit">g</span><span style="font-size:11px;color:var(--text3);margin-left:4px;">(${vapeToday.length})</span>`:'<span style="color:var(--text3);font-size:16px;">—</span>'}</div></div>
   `;
+
+  renderInventory();
 
   const active=batches.filter(b=>b.status==='active');
   document.getElementById('dash-active').innerHTML=active.length
@@ -1592,73 +1682,164 @@ function s3(c,a){
       </div>`;
     setTimeout(()=>{document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')addPkg(false);});},30);
   } else {
-    // Downstream: require tag, source batch ID, and weight
+    // Diamonds: single source batch only
+    // Other downstream routes: multi-package manual entry
+    const isDiamRoute=draft.route==='diamonds';
     const total=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
     draft.totalIn=total;
-    c.innerHTML=`
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);">
-        Scan each source package tag and enter the batch ID it came from plus the weight being used.
-      </div>
-      <div class="fg">
-        <label class="flabel">Source METRC Tag # <span class="req">*</span></label>
-        <div class="sg">
-          <input id="p-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false">
-          <div class="scanbtn" onclick="openScanner('p-tag')">${barIcon()}</div>
+    const pkg=draft.srcPkgs[0]||null; // diamonds always one package
+
+    if(isDiamRoute){
+      document.getElementById('hdr-title').textContent='Source Crude Package';
+      const srcBatch=pkg?batches.find(b=>b.outTag===pkg.tag):null;
+      c.innerHTML=`
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:14px;font-size:12px;color:var(--text2);">
+          Enter the single crude source tag being harvested for this diamonds batch.
         </div>
-      </div>
-      <div class="fg">
-        <label class="flabel">Source Batch ID <span class="req">*</span></label>
-        <input id="p-batchid" class="fi mono" type="text" placeholder="e.g. APFR-CRUDE-050426" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:13px">
-        <div class="fhint" id="p-batchid-hint"></div>
-      </div>
-      <div class="fg">
-        <label class="flabel">Weight Used (g) <span class="req">*</span></label>
-        <input id="p-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" inputmode="decimal">
-      </div>
-      <button class="btn bs" style="margin-bottom:12px;" onclick="addPkg(true)">+ Add Source Package</button>
-      <div class="div"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <span class="sec" style="margin:0">Added (${draft.srcPkgs.length})</span>
-        <span style="font-family:var(--mono);font-size:13px;">Total: <strong>${total.toFixed(1)}g</strong></span>
-      </div>
-      <div class="plist">${draft.srcPkgs.length
-        ?draft.srcPkgs.map((p,i)=>`<div class="pitem">
-            <div style="flex:1;min-width:0;">
-              <div class="ptag">${p.tag}</div>
-              <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:1px;">${p.srcBatchId||''}</div>
+        <div class="fg">
+          <label class="flabel">Crude Source Tag <span class="req">*</span></label>
+          <div class="sg">
+            <input id="p-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" value="${pkg?.tag||''}" autocomplete="off" autocorrect="off" spellcheck="false" oninput="onDiamTagInput(this.value)">
+            <div class="scanbtn" onclick="openScanner('p-tag')">${barIcon()}</div>
+          </div>
+          <div class="fhint" id="p-tag-hint">${srcBatch?`<span style="color:var(--accent)">✓ ${srcBatch.strain||''} · ${ROUTES[srcBatch.route]?.label||''}</span> · Available: <strong>${(srcBatch.outWeight||0).toFixed(2)}g</strong>`:'Scan or enter crude tag'}</div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Source Batch ID <span class="req">*</span></label>
+          <input id="p-batchid" class="fi mono" type="text" placeholder="e.g. APFR-CRUDE-050426" value="${pkg?.srcBatchId||srcBatch?.batchId||''}" style="font-size:13px" autocomplete="off">
+        </div>
+        <div id="p-strain-row" style="display:none;">
+          <div class="row2">
+            <div class="fg">
+              <label class="flabel">Strain Name</label>
+              <input id="p-strain-name" class="fi" type="text" placeholder="e.g. Apple Fritter" autocomplete="off" autocorrect="off" oninput="draft.strain=this.value;const sc=this.value.replace(/[^a-zA-Z0-9\\s#]/g,'');const el=document.getElementById('p-strain-code');if(el)el.value=strCode(sc);draft.strainCode=strCode(sc);">
             </div>
-            <span class="pwt">${p.weight}g</span>
-            <span class="prm" onclick="rmPkg(${i})">✕</span></div>`).join('')
-        :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No packages added yet</p>`}
-      </div>`;
-    // Auto-lookup: when tag is entered, show source batch info + available weight
-    setTimeout(()=>{
-      const tagEl=document.getElementById('p-tag');
-      const bidEl=document.getElementById('p-batchid');
-      const wtEl=document.getElementById('p-wt');
-      const hint=document.getElementById('p-batchid-hint');
-      if(tagEl&&bidEl){
-        tagEl.addEventListener('input',()=>{
-          const val=tagEl.value.trim();
-          const match=batches.find(b=>b.outTag===val);
-          if(match){
-            bidEl.value=match.batchId;
-            const avail=(match.outWeight||0).toFixed(2);
-            const product=ROUTES[match.route]?.label||match.route;
-            const strain=match.strain?match.strain+' · ':'';
-            if(hint)hint.innerHTML=`<span style="color:var(--accent)">✓ ${strain}${product}</span> · Available: <span style="color:var(--text);font-weight:500;">${avail}g</span>`;
-          } else if(val.length===24){
-            // Full tag entered but not found in saved batches
-            if(hint)hint.innerHTML=`<span style="color:var(--text3)">Tag not found in saved batches — enter batch ID and weight manually</span>`;
-          } else {
-            if(hint)hint.textContent='';
-          }
-        });
-        document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')addPkg(true);});
-      }
-    },30);
+            <div class="fg">
+              <label class="flabel">Strain Code</label>
+              <input id="p-strain-code" class="fi mono" type="text" placeholder="APFR" maxlength="6" style="text-transform:uppercase;" autocomplete="off" oninput="draft.strainCode=this.value.toUpperCase();this.value=draft.strainCode;">
+            </div>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Crude Weight Used (g) <span class="req">*</span></label>
+          <input id="p-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${pkg?.weight||''}" inputmode="decimal">
+          ${srcBatch?`<div class="fhint">Available on tag: ${(srcBatch.outWeight||0).toFixed(2)}g</div>`:''}
+        </div>
+        ${pkg?`<div class="total-strip" style="margin-top:4px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text2);">CRUDE INPUT</span>
+          <span style="font-family:var(--mono);font-size:20px;font-weight:500;">${pkg.weight.toFixed(2)}<span style="font-size:12px;color:var(--text2)">g</span></span>
+        </div>`:''}`;
+      setTimeout(()=>{
+        document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')commitDiamPkg();});
+      },30);
+    } else {
+      // All other downstream routes — multi-package
+      c.innerHTML=`
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);">
+          Scan each source package tag and enter the batch ID it came from plus the weight being used.
+        </div>
+        <div class="fg">
+          <label class="flabel">Source METRC Tag # <span class="req">*</span></label>
+          <div class="sg">
+            <input id="p-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false">
+            <div class="scanbtn" onclick="openScanner('p-tag')">${barIcon()}</div>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Source Batch ID <span class="req">*</span></label>
+          <input id="p-batchid" class="fi mono" type="text" placeholder="e.g. APFR-CRUDE-050426" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:13px">
+          <div class="fhint" id="p-batchid-hint"></div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Weight Used (g) <span class="req">*</span></label>
+          <input id="p-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" inputmode="decimal">
+        </div>
+        <button class="btn bs" style="margin-bottom:12px;" onclick="addPkg(true)">+ Add Source Package</button>
+        <div class="div"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span class="sec" style="margin:0">Added (${draft.srcPkgs.length})</span>
+          <span style="font-family:var(--mono);font-size:13px;">Total: <strong>${total.toFixed(1)}g</strong></span>
+        </div>
+        <div class="plist">${draft.srcPkgs.length
+          ?draft.srcPkgs.map((p,i)=>`<div class="pitem">
+              <div style="flex:1;min-width:0;">
+                <div class="ptag">${p.tag}</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:1px;">${p.srcBatchId||''}</div>
+              </div>
+              <span class="pwt">${p.weight}g</span>
+              <span class="prm" onclick="rmPkg(${i})">✕</span></div>`).join('')
+          :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No packages added yet</p>`}
+        </div>`;
+      // Auto-lookup
+      setTimeout(()=>{
+        const tagEl=document.getElementById('p-tag');
+        const bidEl=document.getElementById('p-batchid');
+        const hint=document.getElementById('p-batchid-hint');
+        if(tagEl&&bidEl){
+          tagEl.addEventListener('input',()=>{
+            const val=tagEl.value.trim();
+            const match=batches.find(b=>b.outTag===val);
+            if(match){
+              bidEl.value=match.batchId;
+              const avail=(match.outWeight||0).toFixed(2);
+              const product=ROUTES[match.route]?.label||match.route;
+              if(hint)hint.innerHTML=`<span style="color:var(--accent)">✓ ${match.strain?match.strain+' · ':''}${product}</span> · Available: <strong>${avail}g</strong>`;
+            } else if(val.length===24){
+              if(hint)hint.innerHTML=`<span style="color:var(--text3)">Not found in saved batches — enter batch ID manually</span>`;
+            } else {if(hint)hint.textContent='';}
+          });
+          document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')addPkg(true);});
+        }
+      },30);
+    }
   }
   a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${draft.srcPkgs.length===0?'disabled':''}>Continue →</button></div>`;
+}
+
+function onDiamTagInput(val){
+  const hint=document.getElementById('p-tag-hint');
+  const bidEl=document.getElementById('p-batchid');
+  const strainRow=document.getElementById('p-strain-row');
+  if(!hint)return;
+  const match=batches.find(b=>b.outTag===val.trim());
+  if(match){
+    if(bidEl&&!bidEl.value)bidEl.value=match.batchId;
+    hint.innerHTML=`<span style="color:var(--accent)">✓ ${match.strain||''} · ${ROUTES[match.route]?.label||''}</span> · Available: <strong>${(match.outWeight||0).toFixed(2)}g</strong>`;
+    const sc=document.getElementById('p-strain-code');
+    if(sc)sc.value=match.strainCode||'';
+    if(strainRow)strainRow.style.display='none';
+    draft.strain=match.strain||'';
+    draft.strainCode=match.strainCode||'';
+  } else if(val.length===24){
+    hint.innerHTML=`<span style="color:var(--amber)">Tag not found in saved batches — enter details manually</span>`;
+    if(strainRow)strainRow.style.display='block';
+  } else {
+    hint.textContent='Scan or enter crude tag';
+    if(strainRow)strainRow.style.display='none';
+  }
+}
+
+function commitDiamPkg(){
+  const tag=document.getElementById('p-tag')?.value.trim();
+  const wt=parseFloat(document.getElementById('p-wt')?.value)||0;
+  const bid=document.getElementById('p-batchid')?.value.trim();
+  if(!tag||tag.length!==24){toast('Tag must be 24 characters');return;}
+  if(!wt){toast('Enter crude weight used');return;}
+  if(!bid){toast('Enter source batch ID');return;}
+  const srcBatch=batches.find(b=>b.outTag===tag);
+  if(srcBatch){
+    draft.strain=srcBatch.strain||'';
+    draft.strainCode=srcBatch.strainCode||'';
+  } else {
+    // Use manually entered strain if tag not in saved batches
+    const manualName=document.getElementById('p-strain-name')?.value.trim();
+    const manualCode=document.getElementById('p-strain-code')?.value.trim().toUpperCase();
+    if(manualName)draft.strain=manualName;
+    if(manualCode)draft.strainCode=manualCode;
+  }
+  draft.srcPkgs=[{tag,weight:wt,srcBatchId:bid}];
+  draft.totalIn=wt;
+  renderWiz();
 }
 
 function addPkg(isDownstream){
@@ -1948,8 +2129,31 @@ function next(){
     }
   }
   if(wStep===3){
-    // Require at least one source package regardless of stage
-    if(!draft.srcPkgs.length){toast('Add at least one source package');return;}
+    if(draft.route==='diamonds'){
+      const tag=document.getElementById('p-tag')?.value.trim();
+      const wt=parseFloat(document.getElementById('p-wt')?.value)||0;
+      const bid=document.getElementById('p-batchid')?.value.trim();
+      if(!draft.srcPkgs.length){
+        if(!tag||tag.length!==24){toast('Enter a valid 24-character crude tag');return;}
+        if(!wt){toast('Enter crude weight used');return;}
+        if(!bid){toast('Enter source batch ID');return;}
+        const srcBatch=batches.find(b=>b.outTag===tag);
+        if(srcBatch){
+          draft.strain=srcBatch.strain||'';
+          draft.strainCode=srcBatch.strainCode||'';
+        } else {
+          const manualCode=document.getElementById('p-strain-code')?.value.trim().toUpperCase();
+          const manualName=document.getElementById('p-strain-name')?.value.trim();
+          if(!manualCode){toast('Enter strain code for this crude batch');return;}
+          draft.strainCode=manualCode;
+          if(manualName)draft.strain=manualName;
+        }
+        draft.srcPkgs=[{tag,weight:wt,srcBatchId:bid}];
+      }
+      draft.totalIn=draft.srcPkgs[0].weight;
+    } else {
+      if(!draft.srcPkgs.length){toast('Add at least one source package');return;}
+    }
     draft.totalIn=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
   }
   if(wStep===4){
@@ -1963,7 +2167,10 @@ function next(){
         const hteTag=document.getElementById('hte-tag')?.value.trim();
         if(!hteTag||hteTag.length!==24){toast('HTE tag must be 24 characters');return;}
         draft.hteTag=hteTag;
-        draft.hteBatchId=`THCa-HTE-${dateCode(draft.date)}`;
+        // Use strain code from source crude batch
+        const srcBatch=batches.find(b=>b.outTag===draft.srcPkgs[0]?.tag);
+        const sc=draft.strainCode||srcBatch?.strainCode||'UNKN';
+        draft.hteBatchId=`${sc}-HTE-${dateCode(draft.date)}`;
       }
     }
     // ld-vape: derive strain code from flavor
