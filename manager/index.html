@@ -323,13 +323,14 @@ const FIREBASE_CONFIG = {
   appId:             "1:735518638661:web:cf646ede8943d4baffd92c"
 };
 
-firebase.initializeApp(FIREBASE_CONFIG, 'manager-primary');
-// Secondary app instance — used to create new users without signing out the manager
+// Default app — shares the auth session established on the login page
+firebase.initializeApp(FIREBASE_CONFIG);
+// Secondary named app — used to create new users without signing out the manager
 firebase.initializeApp(FIREBASE_CONFIG, 'manager-secondary');
 
-const auth        = firebase.app('manager-primary').auth();
+const auth        = firebase.auth();
 const authSecond  = firebase.app('manager-secondary').auth();
-const db          = firebase.app('manager-primary').firestore();
+const db          = firebase.firestore();
 
 let currentUser     = null;
 let currentUserData = null;
