@@ -513,7 +513,7 @@ auth.onAuthStateChanged(async user => {
 
   let snap;
   try{ snap = await db.collection('users').doc(user.uid).get(); }
-  catch(e){ window.location.href = '../'; return; }
+  catch(e){ await auth.signOut(); window.location.href = '../'; return; }
 
   const data = snap.data();
   if(!data){ await auth.signOut(); window.location.href = '../'; return; }
