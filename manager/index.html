@@ -21,15 +21,16 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
 
-/* Auth loading */
+/* ── Auth loading ── */
 #auth-loading{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;}
 .auth-loading-logo{width:44px;height:44px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;}
 .auth-loading-logo svg{width:24px;height:24px;fill:#0d1410;}
 
-/* Layout */
+/* ── Layout ── */
 #app{min-height:100%;display:flex;flex-direction:column;}
+#body{flex:1;padding:20px 16px 40px;max-width:900px;margin:0 auto;width:100%;}
 
-/* Header */
+/* ── Header ── */
 #hdr{height:var(--hdr);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;position:sticky;top:0;z-index:20;}
 .logo{width:26px;height:26px;background:var(--accent);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .logo svg{width:14px;height:14px;fill:#0d1410;}
@@ -38,33 +39,35 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .hdr-icon{width:32px;height:32px;background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .hdr-icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;}
 
-/* User menu */
+/* ── User account menu ── */
 #user-menu{display:none;position:fixed;top:calc(var(--hdr) + 4px);right:8px;z-index:200;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:8px;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.4);}
-#user-menu-email{font-size:11px;color:var(--text3);font-family:var(--mono);padding:4px 8px 8px;border-bottom:1px solid var(--border);}
+#user-menu-email{font-size:11px;color:var(--text3);font-family:var(--mono);padding:4px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;}
 .menu-btn{width:100%;background:none;border:none;color:var(--text);font-size:13px;padding:10px 8px;text-align:left;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;font-family:var(--sans);}
 .menu-btn:hover{background:var(--bg3);}
 .menu-btn.danger{color:var(--red);}
 .menu-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;flex-shrink:0;}
 
-/* Page body */
-#body{flex:1;padding:20px 16px;max-width:900px;margin:0 auto;width:100%;}
+/* ── Section heading row ── */
+.sec-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.sec-heading{font-size:11px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);}
+.sec-action{display:flex;align-items:center;gap:6px;background:var(--adim);border:1px solid var(--border2);color:var(--accent);font-size:12px;font-family:var(--mono);padding:5px 10px;border-radius:6px;cursor:pointer;letter-spacing:0.04em;}
+.sec-action svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;}
 
-/* Phase banner */
-.phase-banner{background:var(--adim);border:1px solid var(--border2);border-radius:var(--rl);padding:20px;margin-bottom:24px;text-align:center;}
-.phase-banner h2{font-size:16px;font-weight:500;color:var(--accent);margin-bottom:6px;}
-.phase-banner p{font-size:13px;color:var(--text2);line-height:1.5;}
+/* ── Phase banner ── */
+.phase-banner{background:var(--adim);border:1px solid var(--border2);border-radius:var(--rl);padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:12px;}
+.phase-banner-icon{width:36px;height:36px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.phase-banner-icon svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:1.6;}
+.phase-banner-text h2{font-size:14px;font-weight:500;color:var(--accent);margin-bottom:3px;}
+.phase-banner-text p{font-size:12px;color:var(--text2);line-height:1.5;}
 
-/* Dashboard grid */
-.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:24px;}
-.dash-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:16px;}
-.dash-card-title{font-size:10px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
-.dash-placeholder{height:80px;background:var(--bg3);border-radius:var(--r);display:flex;align-items:center;justify-content:center;}
+/* ── Dashboard grid ── */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:28px;}
+.dash-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px;}
+.dash-card-title{font-size:10px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+.dash-placeholder{height:64px;background:var(--bg3);border-radius:var(--r);display:flex;align-items:center;justify-content:center;}
 .dash-placeholder span{font-size:11px;color:var(--text3);font-family:var(--mono);}
 
-/* Section heading */
-.sec-heading{font-size:11px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
-
-/* Nav shortcut */
+/* ── Nav shortcut ── */
 .nav-shortcut{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;cursor:pointer;text-decoration:none;color:var(--text);margin-bottom:12px;transition:border-color 0.15s;}
 .nav-shortcut:hover{border-color:var(--border2);}
 .nav-shortcut-icon{width:36px;height:36px;background:var(--adim);border:1px solid var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -73,6 +76,63 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .nav-shortcut-label{font-size:14px;font-weight:500;margin-bottom:2px;}
 .nav-shortcut-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
 .nav-shortcut-arrow{color:var(--text3);}
+
+/* ── User cards ── */
+#user-list{display:flex;flex-direction:column;gap:8px;margin-bottom:28px;}
+.user-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;}
+.user-avatar{width:36px;height:36px;background:var(--bg4);border:1px solid var(--border2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;font-weight:500;color:var(--accent);text-transform:uppercase;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:14px;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-email{font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-badges{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;}
+.badge{font-size:10px;font-family:var(--mono);letter-spacing:0.06em;padding:2px 7px;border-radius:4px;text-transform:uppercase;}
+.badge-manager{background:rgba(100,181,246,0.12);border:1px solid rgba(100,181,246,0.3);color:var(--blue);}
+.badge-tech{background:var(--adim);border:1px solid var(--border2);color:var(--accent);}
+.badge-hc{background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.25);color:var(--amber);}
+.badge-solventless{background:rgba(206,147,216,0.1);border:1px solid rgba(206,147,216,0.25);color:#ce93d8;}
+.badge-you{background:var(--bg3);border:1px solid var(--border);color:var(--text3);}
+.user-remove{background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;transition:color 0.15s;}
+.user-remove:hover{color:var(--red);}
+.user-remove svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;}
+.user-list-empty{text-align:center;padding:24px;color:var(--text3);font-size:13px;font-family:var(--mono);}
+
+/* ── Modal overlay ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+@media(min-width:500px){.modal-overlay{align-items:center;}}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl) var(--rl) 0 0;padding:24px;width:100%;max-width:440px;}
+@media(min-width:500px){.modal{border-radius:var(--rl);}}
+.modal-title{font-size:15px;font-weight:500;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--text2);margin-bottom:20px;}
+.modal-error{font-size:12px;color:var(--red);font-family:var(--mono);min-height:18px;margin-bottom:10px;}
+
+/* ── Form elements ── */
+.fg{margin-bottom:14px;}
+.flabel{display:block;font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;padding:10px 12px;outline:none;transition:border-color 0.15s;}
+.fi:focus{border-color:var(--accent);}
+.fi::placeholder{color:var(--text3);}
+select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234d6e4d' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.pw-wrap{position:relative;}
+.pw-wrap .fi{padding-right:42px;}
+.pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;display:flex;}
+.pw-toggle svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ── Buttons ── */
+.btn-row{display:flex;gap:8px;margin-top:20px;}
+.btn{flex:1;padding:11px;border-radius:var(--r);font-size:14px;font-weight:500;cursor:pointer;border:none;font-family:var(--sans);}
+.btn-cancel{background:var(--bg3);color:var(--text2);border:1px solid var(--border2);}
+.btn-primary{background:var(--accent);color:#0d1410;}
+.btn:disabled{opacity:0.45;cursor:not-allowed;}
+
+/* ── Confirm dialog ── */
+#confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:600;display:none;align-items:center;justify-content:center;padding:20px;}
+#confirm-overlay.open{display:flex;}
+.confirm-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:24px;width:100%;max-width:320px;}
+.confirm-title{font-size:15px;font-weight:500;margin-bottom:8px;}
+.confirm-body{font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:20px;}
+.confirm-btns{display:flex;gap:8px;}
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
@@ -101,6 +161,64 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
   </div>
 </div>
 
+<!-- Add User Modal -->
+<div class="modal-overlay" id="add-user-overlay">
+  <div class="modal">
+    <div class="modal-title">Add Team Member</div>
+    <div class="modal-sub">Creates a Firebase login and app access record.</div>
+    <div class="modal-error" id="add-user-error"></div>
+    <div class="fg">
+      <label class="flabel">Full Name</label>
+      <input class="fi" id="new-name" type="text" placeholder="First Last" autocapitalize="words">
+    </div>
+    <div class="fg">
+      <label class="flabel">Email</label>
+      <input class="fi" id="new-email" type="email" placeholder="user@example.com" autocapitalize="none">
+    </div>
+    <div class="fg">
+      <label class="flabel">Password</label>
+      <div class="pw-wrap">
+        <input class="fi" id="new-password" type="password" placeholder="Min. 6 characters">
+        <button class="pw-toggle" onclick="togglePw()" type="button" tabindex="-1">
+          <svg id="pw-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="fg-row">
+      <div class="fg" style="margin-bottom:0;">
+        <label class="flabel">Role</label>
+        <select class="fi" id="new-role">
+          <option value="tech">Tech</option>
+          <option value="manager">Manager</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-bottom:0;">
+        <label class="flabel">Department</label>
+        <select class="fi" id="new-dept">
+          <option value="hc">Hydrocarbon</option>
+          <option value="solventless">Solventless</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-cancel" onclick="closeAddUser()">Cancel</button>
+      <button class="btn btn-primary" id="add-user-btn" onclick="doAddUser()">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Remove Dialog -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirm-title">Remove member?</div>
+    <div class="confirm-body" id="confirm-body">This removes their app access. Their Firebase login account is not deleted.</div>
+    <div class="confirm-btns">
+      <button class="btn btn-cancel" style="flex:1;" onclick="closeConfirm()">Cancel</button>
+      <button class="btn" style="flex:1;background:var(--red);color:#fff;" id="confirm-ok-btn">Remove</button>
+    </div>
+  </div>
+</div>
+
 <div id="app">
   <header id="hdr">
     <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
@@ -111,7 +229,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
     </button>
   </header>
 
-  <!-- User menu -->
+  <!-- Account dropdown -->
   <div id="user-menu">
     <div id="user-menu-email">—</div>
     <button class="menu-btn" onclick="window.location.href='../tech/'">
@@ -126,12 +244,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
   <div id="body">
 
+    <!-- Coming soon banner -->
     <div class="phase-banner">
-      <h2>Manager Dashboard</h2>
-      <p>Analytics, task assignment, and communication tools are being built in the next development phase. Check back after Phase 3.</p>
+      <div class="phase-banner-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      <div class="phase-banner-text">
+        <h2>Manager Dashboard</h2>
+        <p>Analytics and reporting arrive in Phase 3. Team management is live now.</p>
+      </div>
     </div>
 
-    <div class="sec-heading">Coming in Phase 3</div>
+    <!-- Analytics placeholders -->
+    <div class="sec-row"><span class="sec-heading">Coming in Phase 3</span></div>
     <div class="dash-grid">
       <div class="dash-card">
         <div class="dash-card-title">Yield Trends</div>
@@ -159,7 +284,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
       </div>
     </div>
 
-    <div class="sec-heading">Quick Access</div>
+    <!-- Team management — live now -->
+    <div class="sec-row">
+      <span class="sec-heading">Team</span>
+      <button class="sec-action" onclick="openAddUser()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Member
+      </button>
+    </div>
+    <div id="user-list">
+      <div class="user-list-empty">Loading team…</div>
+    </div>
+
+    <!-- Quick access -->
+    <div class="sec-row" style="margin-top:4px;"><span class="sec-heading">Quick Access</span></div>
     <a class="nav-shortcut" href="../tech/">
       <div class="nav-shortcut-icon">
         <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
@@ -175,6 +313,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 </div>
 
 <script>
+/* ── Firebase init ── */
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyAyjFEDxjsl26ryUmFF41e0VLs5Vhpx2EU",
   authDomain:        "extractiontracker.firebaseapp.com",
@@ -184,27 +323,191 @@ const FIREBASE_CONFIG = {
   appId:             "1:735518638661:web:cf646ede8943d4baffd92c"
 };
 
-firebase.initializeApp(FIREBASE_CONFIG);
-const auth = firebase.auth();
-const db   = firebase.firestore();
+firebase.initializeApp(FIREBASE_CONFIG, 'manager-primary');
+// Secondary app instance — used to create new users without signing out the manager
+firebase.initializeApp(FIREBASE_CONFIG, 'manager-secondary');
 
-let _userMenuOpen = false;
+const auth        = firebase.app('manager-primary').auth();
+const authSecond  = firebase.app('manager-secondary').auth();
+const db          = firebase.app('manager-primary').firestore();
+
+let currentUser     = null;
+let currentUserData = null;
+let usersUnsubscribe = null;
+
+/* ── Account dropdown ── */
+let _menuOpen = false;
 function toggleUserMenu(){
-  _userMenuOpen = !_userMenuOpen;
-  document.getElementById('user-menu').style.display = _userMenuOpen ? 'block' : 'none';
+  _menuOpen = !_menuOpen;
+  document.getElementById('user-menu').style.display = _menuOpen ? 'block' : 'none';
 }
 document.addEventListener('click', e => {
-  if(_userMenuOpen && !e.target.closest('#user-menu') && !e.target.closest('#hdr-user-btn')){
-    _userMenuOpen = false;
+  if(_menuOpen && !e.target.closest('#user-menu') && !e.target.closest('#hdr-user-btn')){
+    _menuOpen = false;
     document.getElementById('user-menu').style.display = 'none';
   }
 });
 async function doSignOut(){
+  if(usersUnsubscribe) usersUnsubscribe();
   await auth.signOut();
   window.location.href = '../';
 }
 
-// Auth guard — manager role required
+/* ── User list rendering ── */
+function renderUsers(users){
+  const el = document.getElementById('user-list');
+  if(!users.length){
+    el.innerHTML = '<div class="user-list-empty">No team members yet.</div>';
+    return;
+  }
+  el.innerHTML = users.map(u => {
+    const isYou = currentUser && u.id === currentUser.uid;
+    const initials = (u.name||u.email||'?').charAt(0).toUpperCase();
+    const roleBadge = u.role === 'manager'
+      ? '<span class="badge badge-manager">Manager</span>'
+      : '<span class="badge badge-tech">Tech</span>';
+    const deptBadge = u.dept === 'hc'
+      ? '<span class="badge badge-hc">HC</span>'
+      : '<span class="badge badge-solventless">Solventless</span>';
+    const youBadge = isYou ? '<span class="badge badge-you">You</span>' : '';
+    const removeBtn = isYou ? '' :
+      `<button class="user-remove" onclick="confirmRemove('${u.id}','${(u.name||u.email).replace(/'/g,"\\'")}')">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      </button>`;
+    return `
+      <div class="user-card">
+        <div class="user-avatar">${initials}</div>
+        <div class="user-info">
+          <div class="user-name">${u.name || '—'}</div>
+          <div class="user-email">${u.email || u.id}</div>
+          <div class="user-badges">${roleBadge}${deptBadge}${youBadge}</div>
+        </div>
+        ${removeBtn}
+      </div>`;
+  }).join('');
+}
+
+function loadUsers(){
+  usersUnsubscribe = db.collection('users').onSnapshot(snap => {
+    const users = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    users.sort((a,b) => {
+      // Manager first, then alphabetical by name
+      if(a.role !== b.role) return a.role === 'manager' ? -1 : 1;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+    renderUsers(users);
+  }, err => {
+    console.error('users listener error', err);
+    document.getElementById('user-list').innerHTML =
+      '<div class="user-list-empty">Could not load team.</div>';
+  });
+}
+
+/* ── Add user modal ── */
+function openAddUser(){
+  document.getElementById('add-user-error').textContent = '';
+  document.getElementById('new-name').value     = '';
+  document.getElementById('new-email').value    = '';
+  document.getElementById('new-password').value = '';
+  document.getElementById('new-role').value     = 'tech';
+  document.getElementById('new-dept').value     = 'hc';
+  document.getElementById('add-user-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('new-name').focus(), 100);
+}
+function closeAddUser(){
+  document.getElementById('add-user-overlay').classList.remove('open');
+}
+function togglePw(){
+  const input = document.getElementById('new-password');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function doAddUser(){
+  const name     = document.getElementById('new-name').value.trim();
+  const email    = document.getElementById('new-email').value.trim();
+  const password = document.getElementById('new-password').value;
+  const role     = document.getElementById('new-role').value;
+  const dept     = document.getElementById('new-dept').value;
+  const errEl    = document.getElementById('add-user-error');
+  const btn      = document.getElementById('add-user-btn');
+
+  errEl.textContent = '';
+  if(!name)     { errEl.textContent = 'Name is required.';          return; }
+  if(!email)    { errEl.textContent = 'Email is required.';         return; }
+  if(password.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  try {
+    // Create Auth account using secondary app — manager session unaffected
+    const cred = await authSecond.createUserWithEmailAndPassword(email, password);
+    const uid  = cred.user.uid;
+    await authSecond.signOut();
+
+    // Write Firestore user record
+    await db.collection('users').doc(uid).set({
+      name, email, role, dept,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUser.uid
+    });
+
+    closeAddUser();
+  } catch(e) {
+    switch(e.code){
+      case 'auth/email-already-in-use':
+        errEl.textContent = 'That email already has an account.'; break;
+      case 'auth/invalid-email':
+        errEl.textContent = 'Invalid email address.'; break;
+      case 'auth/weak-password':
+        errEl.textContent = 'Password is too weak.'; break;
+      default:
+        errEl.textContent = 'Failed to create account. Try again.';
+        console.error(e);
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add Member';
+  }
+}
+
+/* ── Remove user confirm ── */
+let _pendingRemoveId = null;
+function confirmRemove(uid, name){
+  _pendingRemoveId = uid;
+  document.getElementById('confirm-title').textContent = `Remove ${name}?`;
+  document.getElementById('confirm-body').textContent =
+    `${name} will lose access to the app immediately. Their Firebase login account is not deleted — contact Firebase Console to fully remove it.`;
+  document.getElementById('confirm-ok-btn').onclick = doRemoveUser;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function closeConfirm(){
+  _pendingRemoveId = null;
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+async function doRemoveUser(){
+  if(!_pendingRemoveId) return;
+  document.getElementById('confirm-ok-btn').textContent = 'Removing…';
+  document.getElementById('confirm-ok-btn').disabled = true;
+  try {
+    await db.collection('users').doc(_pendingRemoveId).delete();
+    closeConfirm();
+  } catch(e) {
+    console.error('remove user error', e);
+    document.getElementById('confirm-ok-btn').textContent = 'Remove';
+    document.getElementById('confirm-ok-btn').disabled = false;
+  }
+}
+
+/* ── Close modals on overlay click ── */
+document.getElementById('add-user-overlay').addEventListener('click', e => {
+  if(e.target === e.currentTarget) closeAddUser();
+});
+document.getElementById('confirm-overlay').addEventListener('click', e => {
+  if(e.target === e.currentTarget) closeConfirm();
+});
+
+/* ── Auth guard — manager role required ── */
 auth.onAuthStateChanged(async user => {
   if(!user){ window.location.href = '../'; return; }
 
@@ -216,11 +519,13 @@ auth.onAuthStateChanged(async user => {
   if(!data){ await auth.signOut(); window.location.href = '../'; return; }
   if(data.role !== 'manager'){ window.location.href = '../tech/'; return; }
 
-  // Populate user info
-  document.getElementById('user-menu-email').textContent = user.email || data.name || 'Manager';
+  currentUser     = user;
+  currentUserData = data;
 
-  // Show app
-  document.getElementById('auth-loading').style.display = 'none';
+  document.getElementById('user-menu-email').textContent = user.email || data.name || 'Manager';
+  document.getElementById('auth-loading').style.display  = 'none';
+
+  loadUsers();
 });
 </script>
 </body>
