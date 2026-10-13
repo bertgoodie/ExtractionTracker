@@ -422,14 +422,12 @@ select.fi option{background:#1a2420;}
 
   <div id="screens">
     <div id="screen-dashboard" class="screen active">
-      <div class="dash-strip" style="margin-top:0;"><div class="ds-label">Biomass · Today</div><div class="ds-line"></div></div>
+      <div class="dash-strip" style="margin-top:0;"><div class="ds-label">Tag Assignment Pending</div><div class="ds-line"></div></div>
+      <div id="dash-tag-pending"></div>
+      <div class="dash-strip"><div class="ds-label">Biomass · Today</div><div class="ds-line"></div></div>
       <div id="stats-biomass" class="sgrid"></div>
       <div class="dash-strip"><div class="ds-label">Downstream · Today</div><div class="ds-line"></div></div>
       <div id="stats-downstream" class="sgrid"></div>
-      <div class="dash-strip"><div class="ds-label">Crude &amp; Badder Inventory</div><div class="ds-line"></div></div>
-      <div id="dash-inventory"></div>
-      <div class="dash-strip"><div class="ds-label">Tag Assignment Pending</div><div class="ds-line"></div></div>
-      <div id="dash-tag-pending"></div>
       <div class="dash-strip"><div class="ds-label">Active Batches</div><div class="ds-line"></div><button class="view-all-btn" onclick="goTo('active-log')">View All →</button></div>
       <div id="dash-active"></div>
       <div class="dash-strip"><div class="ds-label">Recently Completed</div><div class="ds-line"></div></div>
@@ -476,6 +474,10 @@ select.fi option{background:#1a2420;}
         <div class="empty"><div class="eicon">⏱</div><div class="etitle">Loading…</div></div>
       </div>
     </div>
+
+    <div id="screen-inventory" class="screen">
+      <div id="inv-screen-content"></div>
+    </div>
   </div>
 
 </div>
@@ -501,6 +503,10 @@ select.fi option{background:#1a2420;}
     <div class="snav-item" id="ntab-history" onclick="goTo('history');closeSideNav()">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 15.5"/></svg>
       History
+    </div>
+    <div class="snav-item" id="ntab-inventory" onclick="goTo('inventory');closeSideNav()">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+      Inventory
     </div>
     <div class="snav-divider"></div>
   </div>
@@ -1005,7 +1011,8 @@ function startListener(){
     });
 }
 function refreshCurrentScreen(){
-  if(curScreen==='dashboard'){renderDash();renderInventory();}
+  if(curScreen==='dashboard')renderDash();
+  else if(curScreen==='inventory')renderInventory();
   else if(curScreen==='history')renderHistory();
   else if(curScreen==='active-log')renderActiveLog();
   else if(curScreen==='extraction-log')renderExtLog();
@@ -1054,7 +1061,8 @@ function goTo(screen){
   const tabs={
     dashboard:'ntab-dashboard',
     history:'ntab-history',
-    'extraction-log':'ntab-extraction-log'
+    'extraction-log':'ntab-extraction-log',
+    inventory:'ntab-inventory'
   };
   if(tabs[screen])document.getElementById(tabs[screen])?.classList.add('act');
   const back=document.getElementById('hdr-back');
@@ -1065,7 +1073,7 @@ function goTo(screen){
     dashboard:'HC Extract',history:'Batch History',
     'new-batch':'New Batch','batch-detail':'Batch Detail',
     'active-log':'Active Batches','edit-batch':'Edit Batch',
-    'extraction-log':'Extraction'
+    'extraction-log':'Extraction',inventory:'Inventory'
   };
   title.textContent=labels[screen]||'HC Extract';
   const hasBack=['new-batch','batch-detail','active-log','edit-batch'].includes(screen);
@@ -1083,6 +1091,7 @@ function goTo(screen){
   if(screen==='new-batch')renderWiz();
   if(screen==='active-log')renderActiveLog();
   if(screen==='extraction-log')renderExtLog();
+  if(screen==='inventory')renderInventory();
 }
 
 function handleBack(){
@@ -1123,7 +1132,7 @@ function getCrudeRemaining(b){
 }
 
 function renderInventory(){
-  const el=document.getElementById('dash-inventory');
+  const el=document.getElementById('inv-screen-content');
   if(!el)return;
 
   const inv=batches
@@ -1214,8 +1223,6 @@ function renderDash(){
     <div class="scard"><div class="slabel">💧 Liq Diamonds</div><div class="sval sm">${dashVal(lqdG)}</div></div>
     <div class="scard"><div class="slabel">💨 Vape Out</div><div class="sval sm">${vapeG>0?`${vapeG.toFixed(1)}<span class="sunit">g</span><span style="font-size:11px;color:var(--text3);margin-left:4px;">(${vapeToday.length})</span>`:'<span style="color:var(--text3);font-size:16px;">—</span>'}</div></div>
   `;
-
-  renderInventory();
 
   // ── Tag Assignment Pending ──
   checkAndCreateOffGasNotifs();
