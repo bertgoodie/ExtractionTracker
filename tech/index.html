@@ -695,7 +695,12 @@ select.fi option{background:#1a2420;}
     </div>
     <div class="fg" style="margin-bottom:12px;">
       <label class="flabel">Output METRC Tag</label>
-      <input id="otag-tag" class="fi" type="text" placeholder="Scan or enter output tag" autocomplete="off" autocapitalize="characters">
+      <div style="display:flex;gap:8px;">
+        <input id="otag-tag" class="fi" style="flex:1;font-family:var(--mono);font-size:12px;letter-spacing:0.04em;" type="text" placeholder="Scan or enter output tag" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button onclick="scanOtagOutputTag()" style="flex-shrink:0;width:42px;height:42px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="2" y="3" width="4" height="18" rx="1"/><rect x="8" y="3" width="2" height="18" rx="0.5"/><rect x="12" y="3" width="3" height="18" rx="0.5"/><rect x="17" y="3" width="5" height="18" rx="1"/></svg>
+        </button>
+      </div>
     </div>
     <div class="fg" style="margin-bottom:12px;">
       <label class="flabel">Output Weight (g)</label>
@@ -3287,6 +3292,17 @@ function openOutputTagModal(sourceTag){
 function toggleOffGasOverride(checked){
   document.getElementById('otag-submit-btn').disabled=!checked;
   if(checked) setTimeout(()=>document.getElementById('otag-tag')?.focus(),40);
+}
+function scanOtagOutputTag(){
+  document.getElementById('output-tag-modal').classList.remove('vis');
+  scanCB=tag=>{
+    closeScanner();
+    document.getElementById('otag-tag').value=tag.toUpperCase();
+    document.getElementById('output-tag-modal').classList.add('vis');
+    setTimeout(()=>document.getElementById('otag-weight')?.focus(),120);
+  };
+  document.getElementById('scan-ov').classList.add('act');
+  startScanner();
 }
 function closeOutputTagModal(){
   document.getElementById('output-tag-modal').classList.remove('vis');
