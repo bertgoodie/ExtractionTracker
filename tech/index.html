@@ -340,7 +340,8 @@ select.fi option{background:#1a2420;}
 .ext-btn-row{display:flex;gap:8px;margin-top:14px;}
 .ext-btn-row .btn{flex:1;padding:12px 8px;font-size:14px;}
 /* ── Tag assignment pending cards ── */
-.tap-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.tap-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color 0.15s,background 0.15s;}
+.tap-card:active{background:var(--bg3);}
 .tap-card.tap-ready{border-left:3px solid #ef5350;}
 .tap-card.tap-offgas{border-left:3px solid var(--amber);}
 .tap-icon{width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
@@ -1312,7 +1313,7 @@ function renderDash(){
       const endedDate=last.endedAt?new Date(last.endedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
       const durStr=totalSec?` · ${fmtDuration(totalSec)}`:'';
       const safeTag=tag.replace(/'/g,"\\'");
-      return`<div class="tap-card ${isReady?'tap-ready':'tap-offgas'}" style="flex-direction:column;align-items:stretch;" onclick="openOutputTagModal('${safeTag}')">
+      return`<div class="tap-card ${isReady?'tap-ready':'tap-offgas'}" style="flex-direction:column;align-items:stretch;" data-tag="${tag.replace(/"/g,'&quot;')}" data-action="open-output-tag">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="tap-icon" style="background:${isReady?'rgba(239,83,80,0.1)':'rgba(255,183,77,0.1)'}">🏷️</div>
           <div class="tap-body">
@@ -3339,6 +3340,15 @@ auth.onAuthStateChanged(async user=>{
   // Hide loading overlay and boot
   document.getElementById('auth-loading').style.display='none';
   bootApp();
+});
+
+// Delegated listener for tap-cards — handles onclick regardless of when cards are injected
+document.getElementById('screens').addEventListener('click',function(e){
+  const card=e.target.closest('[data-action="open-output-tag"]');
+  if(card){
+    const tag=card.dataset.tag;
+    if(tag) openOutputTagModal(tag);
+  }
 });
 
 </script>
