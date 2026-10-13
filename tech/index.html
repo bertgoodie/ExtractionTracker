@@ -824,10 +824,12 @@ function stageBadgeCls(status){
 }
 
 // Ordered stages for a given route
+// Tagged happens AFTER purging (output is tagged in METRC post-extraction,
+// then sits in storage awaiting formulation/allocation)
 function getStages(route){
   return SKIP_PARTIAL.has(route)
-    ? ['draft','tagged','purging','complete']
-    : ['draft','tagged','purging','partial','complete'];
+    ? ['draft','purging','tagged','complete']
+    : ['draft','purging','tagged','partial','complete'];
 }
 
 // Render a horizontal pipeline progress bar
