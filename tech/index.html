@@ -297,6 +297,39 @@ select.fi option{background:#1a2420;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px;}
 
+/* ── Pipeline bar ── */
+.pipeline-bar{display:flex;align-items:center;margin-bottom:12px;overflow-x:auto;padding:2px 0;}
+.pipe-step{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+.pipe-dot{width:10px;height:10px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--border2);transition:all 0.2s;}
+.pipe-step.done .pipe-dot{background:#2e7d32;border-color:#2e7d32;}
+.pipe-step.act .pipe-dot{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,175,80,0.22);}
+.pipe-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.04em;white-space:nowrap;}
+.pipe-step.done .pipe-label{color:#4caf50;}
+.pipe-step.act .pipe-label{color:var(--accent);}
+.pipe-line{flex:1;height:1.5px;background:var(--border);min-width:12px;}
+.pipe-done-line{background:#2e7d32;}
+
+/* ── Status badges ── */
+.bstatus-draft{background:rgba(255,255,255,0.04);color:var(--text3);border:1px solid var(--border);}
+.bstatus-tagged{background:rgba(100,181,246,0.12);color:#64b5f6;border:1px solid rgba(100,181,246,0.28);}
+.bstatus-purging{background:rgba(255,183,77,0.13);color:#ffb74d;border:1px solid rgba(255,183,77,0.28);}
+.bstatus-partial{background:rgba(255,152,0,0.14);color:#ffa726;border:1px solid rgba(255,152,0,0.32);}
+.bstatus-complete{background:rgba(76,175,80,0.14);color:#81c784;border:1px solid rgba(76,175,80,0.28);}
+
+/* ── Extraction Log ── */
+.ext-timer-display{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rl);padding:20px;text-align:center;margin-bottom:10px;}
+.ext-timer-val{font-family:var(--mono);font-size:44px;font-weight:500;line-height:1;letter-spacing:0.04em;color:var(--accent);}
+.ext-timer-label{font-size:11px;color:var(--text2);margin-top:4px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;}
+.ext-run-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;}
+.ext-run-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.ext-run-id{font-family:var(--mono);font-size:13px;font-weight:500;}
+.ext-run-dur{font-family:var(--mono);font-size:20px;font-weight:500;color:var(--accent);}
+.ext-run-meta{font-family:var(--mono);font-size:10px;color:var(--text3);}
+.ext-run-notes{font-size:12px;color:var(--text2);margin-top:4px;}
+.ext-active-run{border-color:var(--accent);background:rgba(76,175,80,0.04);}
+.ext-start-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+.ext-start-modal.vis{display:flex;}
+
 </style>
 </head>
 <body>
@@ -393,12 +426,22 @@ select.fi option{background:#1a2420;}
         <button class="btn bg2" onclick="resetSettings()">Reset to Defaults</button>
       </div>
     </div>
+
+    <div id="screen-extraction-log" class="screen">
+      <div id="ext-log-content">
+        <div class="empty"><div class="eicon">⏱</div><div class="etitle">Loading…</div></div>
+      </div>
+    </div>
   </div>
 
   <nav id="bnav">
     <div class="ntab act" id="ntab-dashboard" onclick="goTo('dashboard')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
       <span>Dashboard</span>
+    </div>
+    <div class="ntab" id="ntab-extraction-log" onclick="goTo('extraction-log')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
+      <span>Ext Log</span>
     </div>
     <div class="ntab fab-tab" onclick="startNewBatch()">
       <div class="fab"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
@@ -476,6 +519,27 @@ select.fi option{background:#1a2420;}
     <div class="confirm-btns">
       <button class="btn bg2" onclick="cancelConfirm()">Cancel</button>
       <button class="btn bdr" id="confirm-ok" onclick="doConfirm()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Extraction start modal -->
+<div class="ext-start-modal" id="ext-start-modal">
+  <div class="confirm-box" style="max-width:400px;">
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px;">Start Extraction Run</div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Crude Batch</label>
+      <select id="ext-batch-select" class="fi" style="background:var(--bg3);">
+        <option value="">— Select batch —</option>
+      </select>
+    </div>
+    <div class="fg" style="margin-bottom:16px;">
+      <label class="flabel">Notes (optional)</label>
+      <input id="ext-notes" class="fi" type="text" placeholder="e.g. 2nd run of day" autocomplete="off">
+    </div>
+    <div class="confirm-btns">
+      <button class="btn bg2" onclick="closeExtStartModal()">Cancel</button>
+      <button class="btn bp" id="ext-start-btn" onclick="startExtRun()">▶ Start</button>
     </div>
   </div>
 </div>
@@ -569,6 +633,23 @@ const DOWNSTREAM_MAP = {
   'liquid-diamonds': 'ld-vape',
 };
 
+/* ── Status pipeline ── */
+// Routes that skip partial allocation (jump purging/crystal-mat → complete)
+const SKIP_PARTIAL = new Set(['diamonds','lr-vape','cr-vape','liquid-diamonds','ld-vape']);
+
+const STAGE_LABELS = {
+  draft:    'Draft',
+  tagged:   'Tagged',
+  purging:  'Purging',
+  partial:  'Partial',
+  complete: 'Complete',
+};
+
+// Routes that have extraction time tracking (crude oil)
+const EXTRACTION_TIMED_ROUTES = new Set(['crude']);
+
+const FACILITY_ID = 'TG-HC';
+
 const BIOMASS = [
   {v:'',           l:'Select biomass type…'},
   {v:'trim',       l:'Trim'},
@@ -597,8 +678,9 @@ const BIOMASS_OPTIONS = {
 /* ============================================================
    STATE
 ============================================================ */
-let batches  = [];            // populated by Firestore onSnapshot
-let settings = {};            // loaded in bootApp from localStorage
+let batches   = [];           // populated by Firestore onSnapshot
+let extRuns   = [];           // extraction runs from Firestore
+let settings  = {};           // loaded in bootApp from localStorage
 let curScreen = 'dashboard';
 let wStep = 1;
 let draft = {};
@@ -606,6 +688,8 @@ let scanCB = null;
 let scanStream  = null;   // MediaStream from getUserMedia
 let scanActive  = false;  // controls the rAF decode loop
 let confirmCB = null;
+let _activeRunId = null;  // currently running extraction timer
+let _timerInterval = null;
 
 function resetDraft() {
   draft = {
@@ -695,6 +779,86 @@ function toast(msg,ms=2300){
   el.textContent=msg;el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),ms);
 }
+
+/* ============================================================
+   STATUS PIPELINE HELPERS
+============================================================ */
+// Normalise legacy 'active' status → 'purging'
+function getBatchStatus(b){ return (b.status==='active'||!b.status)?'purging':b.status; }
+function isComplete(b){ return getBatchStatus(b)==='complete'; }
+
+// Route-aware label: diamonds use Crystal Mat. instead of Purging
+function getStageLabel(status, route){
+  if(status==='purging'&&route==='diamonds') return 'Crystal Mat.';
+  return STAGE_LABELS[status]||status;
+}
+
+function stageBadgeCls(status){
+  switch(status){
+    case 'draft':    return 'bstatus-draft';
+    case 'tagged':   return 'bstatus-tagged';
+    case 'purging':  return 'bstatus-purging';
+    case 'partial':  return 'bstatus-partial';
+    case 'complete': return 'bstatus-complete';
+    default:         return 'bstatus-purging';
+  }
+}
+
+// Ordered stages for a given route
+function getStages(route){
+  return SKIP_PARTIAL.has(route)
+    ? ['draft','tagged','purging','complete']
+    : ['draft','tagged','purging','partial','complete'];
+}
+
+// Render a horizontal pipeline progress bar
+function renderPipeline(b){
+  const status = getBatchStatus(b);
+  const route  = b.route;
+  const stages = getStages(route);
+  const curIdx = stages.indexOf(status);
+  let html = '<div class="pipeline-bar">';
+  stages.forEach((s,i)=>{
+    if(i>0){
+      const lineClass = i<=curIdx ? 'pipe-line pipe-done-line' : 'pipe-line';
+      html += `<div class="${lineClass}"></div>`;
+    }
+    const cls = i<curIdx ? 'pipe-step done' : i===curIdx ? 'pipe-step act' : 'pipe-step';
+    html += `<div class="${cls}"><div class="pipe-dot"></div><div class="pipe-label">${getStageLabel(s,route)}</div></div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+// Advance a batch to the next stage
+async function advanceStatus(id){
+  const b = batches.find(x=>x.id===id);
+  if(!b) return;
+  const status = getBatchStatus(b);
+  const stages = getStages(b.route);
+  const curIdx = stages.indexOf(status);
+  if(curIdx<0||curIdx>=stages.length-1) return;
+  const nextStatus = stages[curIdx+1];
+
+  const prev = status;
+  b.status = nextStatus;
+  if(!b.statusHistory) b.statusHistory=[];
+  b.statusHistory.push({
+    from: prev, to: nextStatus, ts: Date.now(),
+    uid: currentUser?.uid||'', name: currentUserData?.name||currentUser?.email||''
+  });
+  if(nextStatus==='complete') b.completedAt=Date.now();
+  await saveDoc(b);
+  toast(`Status → ${getStageLabel(nextStatus,b.route)}`);
+  if(nextStatus==='complete'){
+    document.getElementById('cn-bid').textContent=b.batchId;
+    document.getElementById('cn-tag').textContent=`Tag: ${b.outTag||'—'}`;
+    _completedBatchId=b.id;
+    document.getElementById('complete-notice').classList.add('vis');
+  }
+  viewBatch(id);
+}
+
 /* ============================================================
    FIRESTORE DATA LAYER
 ============================================================ */
@@ -713,6 +877,7 @@ function refreshCurrentScreen(){
   if(curScreen==='dashboard'){renderDash();renderInventory();}
   else if(curScreen==='history')renderHistory();
   else if(curScreen==='active-log')renderActiveLog();
+  else if(curScreen==='extraction-log')renderExtLog();
 }
 async function saveDoc(b){
   try{await db.collection('batches').doc(b.id).set(b);}
@@ -754,14 +919,20 @@ function goTo(screen){
   document.getElementById('screen-'+screen).classList.add('active');
   curScreen=screen;
   document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('act'));
-  const tabs={dashboard:'ntab-dashboard',history:'ntab-history',settings:'ntab-settings'};
+  const tabs={
+    dashboard:'ntab-dashboard',
+    history:'ntab-history',
+    settings:'ntab-settings',
+    'extraction-log':'ntab-extraction-log'
+  };
   if(tabs[screen])document.getElementById(tabs[screen]).classList.add('act');
   const back=document.getElementById('hdr-back');
   const title=document.getElementById('hdr-title');
   const labels={
     dashboard:'HC Extract',history:'Batch History',settings:'Yield Settings',
     'new-batch':'New Batch','batch-detail':'Batch Detail',
-    'active-log':'Active Batches','edit-batch':'Edit Batch'
+    'active-log':'Active Batches','edit-batch':'Edit Batch',
+    'extraction-log':'Extraction Log'
   };
   title.textContent=labels[screen]||'HC Extract';
   const hasBack=['new-batch','batch-detail','active-log','edit-batch'].includes(screen);
@@ -771,6 +942,7 @@ function goTo(screen){
   if(screen==='settings')renderSettings();
   if(screen==='new-batch')renderWiz();
   if(screen==='active-log')renderActiveLog();
+  if(screen==='extraction-log')renderExtLog();
 }
 
 function handleBack(){
@@ -905,12 +1077,12 @@ function renderDash(){
 
   renderInventory();
 
-  const active=batches.filter(b=>b.status==='active');
+  const active=batches.filter(b=>!isComplete(b));
   document.getElementById('dash-active').innerHTML=active.length
     ?active.slice(0,4).map(aCard).join('')+(active.length>4?`<button class="btn bg2" style="margin-top:4px;" onclick="goTo('active-log')">View all ${active.length} active batches</button>`:'')
     :`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Tap + to start a run</div></div>`;
 
-  const recent=batches.filter(b=>b.status==='complete').slice(0,4);
+  const recent=batches.filter(b=>isComplete(b)).slice(0,4);
   document.getElementById('dash-recent').innerHTML=recent.length
     ?recent.map(bCard).join('')
     :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No completed batches yet</p>`;
@@ -948,6 +1120,8 @@ function aCard(b){
   const curWt=b.outWeight||0;
   const loss=initWt-curWt;
   const lossPill=loss>0.01?`<span class="loss-pill">-${loss.toFixed(1)}g purge</span>`:'';
+  const status=getBatchStatus(b);
+  const statusLabel=getStageLabel(status,b.route);
   return`<div class="card" onclick="viewBatch('${b.id}')">
     <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
       <div style="flex:1;min-width:0;">
@@ -955,6 +1129,7 @@ function aCard(b){
         ${b.outTag?`<div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;">${b.outTag}</div>`:''}
       </div>
       <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+        <span class="badge ${stageBadgeCls(status)}" style="font-size:9px;">${statusLabel}</span>
         <span class="badge bx" style="font-size:9px;">${r?.icon||''} ${r?.label||''}</span>
         ${lossPill}
       </div>
@@ -974,7 +1149,7 @@ function aCard(b){
    ACTIVE BATCH LOG
 ============================================================ */
 function renderActiveLog(){
-  const active=batches.filter(b=>b.status==='active');
+  const active=batches.filter(b=>!isComplete(b));
   const el=document.getElementById('active-log-content');
   if(!active.length){
     el.innerHTML=`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Tap + to start a new run</div></div>`;
@@ -990,8 +1165,14 @@ let _completedBatchId=null;
 async function markComplete(id){
   const b=batches.find(x=>x.id===id);
   if(!b)return;
+  const prevStatus=getBatchStatus(b);
   b.status='complete';
   b.completedAt=Date.now();
+  if(!b.statusHistory)b.statusHistory=[];
+  b.statusHistory.push({
+    from:prevStatus,to:'complete',ts:Date.now(),
+    uid:currentUser?.uid||'',name:currentUserData?.name||currentUser?.email||''
+  });
   await saveDoc(b);
   _completedBatchId=id;
   document.getElementById('cn-bid').textContent=b.batchId;
@@ -1334,7 +1515,14 @@ function viewBatch(id){
       }).join('')}
     </div>`:'';
 
+  const bStatus=getBatchStatus(b);
+  const bStages=getStages(b.route);
+  const bCurIdx=bStages.indexOf(bStatus);
+  const bNextStatus=bCurIdx>=0&&bCurIdx<bStages.length-1?bStages[bCurIdx+1]:null;
+  const bAdvLabel=bNextStatus?`Advance → ${getStageLabel(bNextStatus,b.route)}`:'';
+
   document.getElementById('detail-content').innerHTML=`
+    ${renderPipeline(b)}
     <div class="ydisplay">
       <div class="ypct" style="color:${col}">${y.toFixed(2)}%</div>
       <div class="ysub">${r?.label||''} Yield</div>
@@ -1348,7 +1536,7 @@ function viewBatch(id){
       ${b.biomassType?`<div class="srow"><span class="skey">Biomass</span><span class="sval">${bLabel(b.biomassType)}</span></div>`:''}
       <div class="srow"><span class="skey">Date</span><span class="sval">${fmtDate(b.date)}</span></div>
       <div class="srow"><span class="skey">Tech</span><span class="sval">${b.tech}</span></div>
-      <div class="srow"><span class="skey">Status</span><span class="sval" style="color:${b.status==='active'?'var(--amber)':'var(--accent)'}">${b.status==='active'?'In Progress':'Complete'}</span></div>
+      <div class="srow"><span class="skey">Status</span><span class="sval badge ${stageBadgeCls(getBatchStatus(b))}" style="font-size:11px;padding:3px 8px;">${getStageLabel(getBatchStatus(b),b.route)}</span></div>
       ${parentRows}
       <div class="srow"><span class="skey">Total Input</span><span class="sval">${(b.totalIn||0).toFixed(1)}g</span></div>
       <div class="srow"><span class="skey">Product Weight</span><span class="sval">${(b.outWeight||0).toFixed(1)}g</span></div>
@@ -1371,11 +1559,11 @@ function viewBatch(id){
       <button class="btn bs" style="flex:1;" onclick="openWadj('${b.id}','outWeight','Package Weight',true,()=>{viewBatch('${b.id}');})">− Subtract Mass</button>
     </div>`:''}
     <div class="btns">
-      ${b.status==='active'?`
-        <button class="btn bp" onclick="markComplete('${b.id}')">✓ Mark Complete</button>
+      ${!isComplete(b)&&bNextStatus?`
+        <button class="btn bp" onclick="advanceStatus('${b.id}')">${bAdvLabel}</button>
         <button class="btn bs" onclick="editBatch('${b.id}')">✎ Edit Batch</button>
       `:`
-        <button class="btn bs" onclick="downstream('${b.id}')">Create Downstream Batch →</button>
+        ${DOWNSTREAM_MAP[b.route]?`<button class="btn bs" onclick="downstream('${b.id}')">Create Downstream Batch →</button>`:''}
         <button class="btn bg2" onclick="reopenBatch('${b.id}')">↩ Reopen Batch</button>
       `}
       <button class="btn bdr" onclick="delBatch('${b.id}')">Delete Batch</button>
@@ -1392,12 +1580,17 @@ function delBatch(id){
 
 function reopenBatch(id){
   showConfirm(
-    'Reopen this batch? It will move back to In Progress.',
+    'Reopen this batch? It will move back to Purging.',
     async()=>{
       const b=batches.find(x=>x.id===id);
       if(!b)return;
-      b.status='active';
+      b.status='purging';
       delete b.completedAt;
+      if(!b.statusHistory)b.statusHistory=[];
+      b.statusHistory.push({
+        from:'complete',to:'purging',ts:Date.now(),
+        uid:currentUser?.uid||'',name:currentUserData?.name||currentUser?.email||''
+      });
       await saveDoc(b);
       toast('Batch reopened');
       viewBatch(id);
@@ -2095,7 +2288,7 @@ function s5(c,a){
     </div>`}`;
 
   a.innerHTML=`<div class="btns">
-    <button class="btn bp" onclick="saveBatch('active')">Save as In Progress</button>
+    <button class="btn bp" onclick="saveBatch('purging')">Save · Start Purging</button>
     <button class="btn bs" onclick="saveBatch('complete')">Save as Complete</button>
     <button class="btn bg2" onclick="wStep=4;renderWiz()">← Edit Output</button>
   </div>`;
@@ -2191,7 +2384,7 @@ function next(){
   wStep++;renderWiz();
 }
 
-async function saveBatch(status='active'){
+async function saveBatch(status='purging'){
   const y=calcY(draft.outWeight,draft.totalIn);
   const b={
     id:uid(),
@@ -2373,8 +2566,8 @@ function runSearch(q){
     return false;
   }
 
-  const active=batches.filter(b=>b.status==='active'&&matchesBatch(b));
-  const complete=batches.filter(b=>b.status==='complete'&&matchesBatch(b));
+  const active=batches.filter(b=>!isComplete(b)&&matchesBatch(b));
+  const complete=batches.filter(b=>isComplete(b)&&matchesBatch(b));
 
   if(!active.length&&!complete.length){
     el.innerHTML=`<div class="search-empty">No batches found for "${raw}"</div>`;
@@ -2406,7 +2599,7 @@ function searchCard(b){
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <span class="badge ${yBadge(y,b.route)}">${y.toFixed(1)}%</span>
-        <span style="font-family:var(--mono);font-size:10px;color:${b.status==='active'?'var(--amber)':'var(--text3)'}">${b.status==='active'?'In Progress':'Complete'}</span>
+        <span class="badge ${stageBadgeCls(getBatchStatus(b))}" style="font-size:9px;">${getStageLabel(getBatchStatus(b),b.route)}</span>
       </div>
     </div>
   </div>`;
@@ -2447,6 +2640,196 @@ async function doSignOut(){
 }
 
 /* ============================================================
+   EXTRACTION LOG
+============================================================ */
+let extRuns=[], _activeRunId=null, _timerInterval=null;
+let _extUnsubscribe=null;
+
+function startExtRunListener(){
+  if(_extUnsubscribe)_extUnsubscribe();
+  _extUnsubscribe=db.collection('extraction_runs')
+    .where('facilityId','==',FACILITY_ID)
+    .orderBy('startedAt','desc')
+    .limit(50)
+    .onSnapshot(snap=>{
+      extRuns=snap.docs.map(d=>({id:d.id,...d.data()}));
+      // Find active run (no endedAt)
+      const active=extRuns.find(r=>!r.endedAt);
+      if(active){
+        if(_activeRunId!==active.id){
+          _activeRunId=active.id;
+          startTimerTick();
+        }
+      } else {
+        if(_activeRunId){
+          _activeRunId=null;
+          stopTimerTick();
+        }
+      }
+      if(curScreen==='extraction-log')renderExtLog();
+    },err=>{
+      console.error('extraction_runs listener error:',err);
+    });
+}
+
+function startTimerTick(){
+  stopTimerTick();
+  _timerInterval=setInterval(()=>{
+    if(curScreen==='extraction-log')updateTimerDisplay();
+  },1000);
+}
+function stopTimerTick(){
+  if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null;}
+}
+
+function fmtDuration(sec){
+  const h=Math.floor(sec/3600);
+  const m=Math.floor((sec%3600)/60);
+  const s=sec%60;
+  if(h>0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function getElapsedSec(startedAt){
+  return Math.floor((Date.now()-startedAt)/1000);
+}
+
+function updateTimerDisplay(){
+  const el=document.getElementById('ext-timer-val');
+  if(!el)return;
+  const run=extRuns.find(r=>r.id===_activeRunId);
+  if(run&&!run.endedAt){
+    el.textContent=fmtDuration(getElapsedSec(run.startedAt));
+  }
+}
+
+function renderExtLog(){
+  const el=document.getElementById('ext-log-content');
+  if(!el)return;
+
+  const active=extRuns.find(r=>!r.endedAt);
+  const past=extRuns.filter(r=>!!r.endedAt);
+
+  let html='';
+
+  // ── Active run card ──
+  if(active){
+    const elapsed=getElapsedSec(active.startedAt);
+    const bLabel=active.batchLabel||active.batchId||'—';
+    html+=`<div class="ext-timer-display ext-active-run">
+      <div class="ext-timer-val" id="ext-timer-val">${fmtDuration(elapsed)}</div>
+      <div class="ext-timer-label">Extraction in progress</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:6px;">${bLabel}</div>
+      ${active.notes?`<div style="font-size:12px;color:var(--text2);margin-top:4px;">${active.notes}</div>`:''}
+    </div>
+    <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="stopExtRunPrompt('${active.id}')">⏹ Stop Extraction</button>`;
+  } else {
+    html+=`<div class="ext-timer-display">
+      <div class="ext-timer-val" style="color:var(--text3);">--:--</div>
+      <div class="ext-timer-label">No active extraction</div>
+    </div>
+    <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="openExtStartModal()">▶ Start Extraction</button>`;
+  }
+
+  // ── Past runs ──
+  if(past.length){
+    html+=`<div class="section-header" style="margin-bottom:8px;">Recent Runs</div>`;
+    html+=past.map(r=>{
+      const dur=r.durationSec!=null?fmtDuration(r.durationSec):'—';
+      const bLabel=r.batchLabel||r.batchId||'—';
+      const d=new Date(r.startedAt);
+      const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      return`<div class="ext-run-card">
+        <div class="ext-run-top">
+          <div>
+            <div class="ext-run-id">${bLabel}</div>
+            <div class="ext-run-meta">${dateStr} · ${timeStr}${r.techName?' · '+r.techName:''}</div>
+            ${r.notes?`<div class="ext-run-notes">${r.notes}</div>`:''}
+          </div>
+          <div class="ext-run-dur">${dur}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } else if(!active){
+    html+=`<div class="empty"><div class="eicon">⏱</div><div class="etitle">No runs yet</div><div class="esub">Start an extraction to begin tracking</div></div>`;
+  }
+
+  el.innerHTML=html;
+}
+
+function openExtStartModal(){
+  // Populate batch picker with non-complete crude batches
+  const crudeBatches=batches.filter(b=>b.route==='crude'&&!isComplete(b));
+  const sel=document.getElementById('ext-batch-select');
+  sel.innerHTML=`<option value="">— Select batch —</option>`
+    +crudeBatches.map(b=>`<option value="${b.id}" data-label="${b.batchId}">${b.batchId}${b.strain?' · '+b.strain:''}</option>`).join('');
+  document.getElementById('ext-start-modal').classList.add('vis');
+}
+function closeExtStartModal(){
+  document.getElementById('ext-start-modal').classList.remove('vis');
+  document.getElementById('ext-notes').value='';
+}
+
+async function startExtRun(){
+  const sel=document.getElementById('ext-batch-select');
+  const batchId=sel.value;
+  if(!batchId){toast('Select a batch first');return;}
+  const opt=sel.querySelector(`option[value="${batchId}"]`);
+  const batchLabel=opt?opt.getAttribute('data-label'):batchId;
+  const notes=document.getElementById('ext-notes').value.trim();
+  const btn=document.getElementById('ext-start-btn');
+  btn.disabled=true;
+  try{
+    await db.collection('extraction_runs').add({
+      facilityId:FACILITY_ID,
+      batchId,
+      batchLabel,
+      notes:notes||'',
+      techUid:currentUser?.uid||'',
+      techName:currentUserData?.name||currentUser?.email||'',
+      startedAt:Date.now(),
+      endedAt:null,
+      durationSec:null
+    });
+    closeExtStartModal();
+    goTo('extraction-log');
+    toast('Extraction started ▶');
+  }catch(e){
+    console.error('startExtRun error:',e);
+    toast('⚠ Could not start run');
+  } finally{
+    btn.disabled=false;
+  }
+}
+
+function stopExtRunPrompt(runId){
+  const run=extRuns.find(r=>r.id===runId);
+  if(!run)return;
+  const elapsed=fmtDuration(getElapsedSec(run.startedAt));
+  showConfirm(
+    `Stop extraction? Record ${elapsed} for ${run.batchLabel||run.batchId}.`,
+    ()=>stopExtRun(runId),
+    'Stop & Save',
+    'bp'
+  );
+}
+
+async function stopExtRun(runId){
+  const run=extRuns.find(r=>r.id===runId);
+  if(!run)return;
+  const endedAt=Date.now();
+  const durationSec=Math.floor((endedAt-run.startedAt)/1000);
+  try{
+    await db.collection('extraction_runs').doc(runId).update({endedAt,durationSec});
+    toast(`Extraction complete · ${fmtDuration(durationSec)}`);
+  }catch(e){
+    console.error('stopExtRun error:',e);
+    toast('⚠ Could not stop run');
+  }
+}
+
+/* ============================================================
    BOOT
 ============================================================ */
 function bootApp(){
@@ -2454,6 +2837,7 @@ function bootApp(){
   resetDraft();
   goTo('dashboard');
   try{startListener();}catch(e){console.error('Firestore listener failed:',e);toast('⚠ Could not connect to database');}
+  try{startExtRunListener();}catch(e){console.error('extraction_runs listener failed:',e);}
 }
 
 /* ============================================================
