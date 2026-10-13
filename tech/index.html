@@ -1218,7 +1218,7 @@ function renderDash(){
   renderInventory();
 
   // ── Tag Assignment Pending ──
-  // Group extRuns by sourceTag; find tags where all runs are done but no outputTag yet
+  checkAndCreateOffGasNotifs();
   const runsByTag={};
   extRuns.forEach(r=>{
     if(!runsByTag[r.sourceTag]) runsByTag[r.sourceTag]=[];
@@ -1238,7 +1238,10 @@ function renderDash(){
       const isReady=now2>=offGasReadyAt;
       const runCount=runs.length;
       const remainH=isReady?0:Math.ceil((offGasReadyAt-now2)/3600000);
-      return{tag,last,runCount,isReady,remainH};
+      const run1=runs.find(r=>(r.runNumber||1)===1);
+      const run2=runs.find(r=>r.runNumber===2);
+      const totalSec=(run1?.durationSec||0)+(run2?.durationSec||0);
+      return{tag,last,runCount,isReady,remainH,totalSec};
     })
     .sort((a,b)=>{
       if(a.isReady!==b.isReady) return a.isReady?-1:1;
@@ -1249,20 +1252,25 @@ function renderDash(){
   if(!pendingTags.length){
     tpEl.innerHTML=`<p style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:4px 0 8px;">No batches awaiting tag assignment</p>`;
   } else {
-    tpEl.innerHTML=pendingTags.map(({tag,last,runCount,isReady,remainH})=>{
-      const pill=isReady
-        ?`<span class="tap-pill tap-pill-ready">Ready</span>`
-        :`<span class="tap-pill tap-pill-offgas">~${remainH}h</span>`;
+    tpEl.innerHTML=pendingTags.map(({tag,last,runCount,isReady,remainH,totalSec})=>{
       const tagShortStr=tag.length>12?'…'+tag.slice(-8):tag;
       const runsLabel=runCount===1?'1 run':`${runCount} runs`;
       const endedDate=last.endedAt?new Date(last.endedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
-      return`<div class="tap-card ${isReady?'tap-ready':'tap-offgas'}" onclick="goTo('extraction-log')">
-        <div class="tap-icon" style="background:${isReady?'rgba(239,83,80,0.1)':'rgba(255,183,77,0.1)'}">🏷️</div>
-        <div class="tap-body">
-          <div class="tap-strain">${last.strain||'—'}</div>
-          <div class="tap-meta">${tagShortStr} · ${runsLabel} · ${endedDate}</div>
+      const durStr=totalSec?` · ${fmtDuration(totalSec)}`:'';
+      const safeTag=tag.replace(/'/g,"\\'");
+      const actionBtn=isReady
+        ?`<button class="btn bp" style="margin-top:10px;font-size:13px;padding:9px 12px;" onclick="openOutputTagModal('${safeTag}')">Assign Output Tag →</button>`
+        :`<div style="font-family:var(--mono);font-size:11px;color:var(--amber);margin-top:8px;">Off-gassing · ready in ~${remainH}h</div>`;
+      return`<div class="tap-card ${isReady?'tap-ready':'tap-offgas'}" style="flex-direction:column;align-items:stretch;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="tap-icon" style="background:${isReady?'rgba(239,83,80,0.1)':'rgba(255,183,77,0.1)'}">🏷️</div>
+          <div class="tap-body">
+            <div class="tap-strain">${last.strain||'—'}</div>
+            <div class="tap-meta">${tagShortStr} · ${runsLabel}${durStr} · ${endedDate}</div>
+          </div>
+          ${isReady?`<span class="tap-pill tap-pill-ready">Ready</span>`:`<span class="tap-pill tap-pill-offgas">~${remainH}h</span>`}
         </div>
-        ${pill}
+        ${actionBtn}
       </div>`;
     }).join('');
   }
@@ -2904,81 +2912,6 @@ function renderExtLog(){
       <div style="font-size:15px;color:var(--text2);margin-bottom:16px;">No active extraction</div>
       <button class="btn bp" style="width:100%;" onclick="openExtStartModal()">Start Extraction Run</button>
     </div>`;
-  }
-
-  // ── History grouped by sourceTag ──
-  if(past.length){
-    checkAndCreateOffGasNotifs();
-    html+=`<div class="section-header" style="margin-bottom:8px;">Run History</div>`;
-    const offGasHours=settings.offGasHours||12;
-    const now=Date.now();
-
-    const groups=new Map();
-    past.forEach(r=>{
-      const key=r.sourceTag||r.id;
-      if(!groups.has(key))groups.set(key,[]);
-      groups.get(key).push(r);
-    });
-
-    [...groups.entries()].forEach(([tag,runs])=>{
-      runs.sort((a,b)=>(a.runNumber||1)-(b.runNumber||1));
-      const run1=runs.find(r=>(r.runNumber||1)===1);
-      const run2=runs.find(r=>r.runNumber===2);
-      const lastRun=run2||run1;
-      const strain=runs[0].strain||'—';
-      const d=new Date(runs[0].startedAt);
-      const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-      const techName=runs[0].techName||'';
-      const totalSec=(run1?.durationSec||0)+(run2?.durationSec||0);
-
-      let runsLine='';
-      if(run1?.durationSec!=null) runsLine+=`R1 ${fmtDuration(run1.durationSec)}`;
-      if(run2?.durationSec!=null) runsLine+=`  ·  R2 ${fmtDuration(run2.durationSec)}`;
-      if(run1?.durationSec&&run2?.durationSec) runsLine+=`  ·  Total ${fmtDuration(totalSec)}`;
-
-      // Off-gas / output status footer
-      let statusHtml='';
-      if(lastRun?.outputTag){
-        statusHtml=`<hr class="ext-hist-divider">
-          <div class="ext-output-row">
-            <span class="ext-output-badge">Output Tagged</span>
-            <span class="ext-output-meta">${tagShort(lastRun.outputTag)}${lastRun.outputWeight?`  ·  ${lastRun.outputWeight}g`:''}</span>
-          </div>`;
-      } else {
-        const offGasReadyAt=(lastRun?.endedAt||0)+offGasHours*3600000;
-        if(now>=offGasReadyAt){
-          statusHtml=`<hr class="ext-hist-divider">
-            <div class="ext-offgas-row">
-              <span class="ext-ready-badge">Action Required</span>
-              <span style="font-family:var(--mono);font-size:11px;color:var(--text2);flex:1;">Ready to weigh &amp; tag</span>
-              <button class="btn bg2" style="font-size:12px;padding:5px 10px;" onclick="openOutputTagModal('${tag.replace(/'/g,"\\'")}')">Assign Output Tag →</button>
-            </div>`;
-        } else {
-          const remainMs=offGasReadyAt-now;
-          const remainH=Math.ceil(remainMs/3600000);
-          statusHtml=`<hr class="ext-hist-divider">
-            <div class="ext-offgas-row">
-              <span class="ext-offgas-badge">Off-Gas</span>
-              <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">Ready in ~${remainH}h</span>
-            </div>`;
-        }
-      }
-
-      html+=`<div class="ext-history-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <div class="ext-hist-strain">${strain}</div>
-            <div class="ext-hist-meta">${tagShort(tag)}${techName?' · '+techName:''}</div>
-          </div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);">${dateStr}</div>
-        </div>
-        ${runsLine?`<div class="ext-hist-runs">${runsLine}</div>`:''}
-        ${(run1?.notes||run2?.notes)?`<div style="font-size:12px;color:var(--text2);margin-top:4px;">${[run1?.notes,run2?.notes].filter(Boolean).join(' · ')}</div>`:''}
-        ${statusHtml}
-      </div>`;
-    });
-  } else if(!active){
-    html+=`<div class="empty"><div class="eicon">⏱</div><div class="etitle">No runs yet</div><div class="esub">Scan source tag to begin tracking</div></div>`;
   }
 
   el.innerHTML=html;
