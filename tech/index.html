@@ -2737,18 +2737,27 @@ function renderExtLog(){
   // ── Active run ──
   if(active){
     const elapsed=getElapsedSec(active.startedAt);
-    const runLabel=active.runNumber?`Run ${active.runNumber}`:'';
+    const isRun1=(active.runNumber||1)===1;
+    const runLabel=`Run ${active.runNumber||1}`;
+    // When on Run 2, look up completed Run 1 for the same source tag
+    const run1Done=isRun1?null:extRuns.find(r=>r.sourceTag===active.sourceTag&&(r.runNumber||1)===1&&r.endedAt);
     html+=`<div class="ext-timer-display ext-active-run">
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;">
-        ${runLabel?`<span class="badge bstatus-tagged" style="font-size:10px;">${runLabel}</span>`:''}
+        <span class="badge bstatus-tagged" style="font-size:10px;">${runLabel}</span>
         <span style="font-family:var(--mono);font-size:12px;color:var(--accent);">${active.strain||'—'}</span>
       </div>
       <div class="ext-timer-val" id="ext-timer-val">${fmtDuration(elapsed)}</div>
       <div class="ext-timer-label">Extraction in progress</div>
       <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;">${tagShort(active.sourceTag)}</div>
+      ${run1Done?`<div style="font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:6px;">Run 1: ${fmtDuration(run1Done.durationSec)}</div>`:''}
       ${active.notes?`<div style="font-size:12px;color:var(--text2);margin-top:4px;">${active.notes}</div>`:''}
     </div>
-    <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="stopExtRunPrompt('${active.id}')">⏹ Stop &amp; Save</button>`;
+    ${isRun1?`
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button class="btn bp" style="flex:1;" onclick="lapRun('${active.id}')">↻ Lap → Run 2</button>
+      <button class="btn bg2" style="flex:0 0 auto;padding:12px 16px;" onclick="stopExtRunPrompt('${active.id}')" title="Stop after Run 1">⏹</button>
+    </div>`:`
+    <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="stopExtRunPrompt('${active.id}')">⏹ Stop &amp; Save</button>`}`;
   } else {
     html+=`<div class="ext-timer-display">
       <div class="ext-timer-val" style="color:var(--text3);">--:--</div>
@@ -2855,6 +2864,7 @@ async function startExtRun(){
   const notes=document.getElementById('ext-notes').value.trim();
   if(!sourceTag){toast('Scan or enter a source tag');return;}
   if(!strain){toast('Enter strain name');return;}
+  if(extRuns.find(r=>!r.endedAt)){toast('An extraction is already in progress');closeExtStartModal();return;}
   const btn=document.getElementById('ext-start-btn');
   btn.disabled=true;
   try{
@@ -2878,6 +2888,32 @@ async function startExtRun(){
     toast('⚠ Could not start run');
   }finally{
     btn.disabled=false;
+  }
+}
+
+async function lapRun(runId){
+  const run=extRuns.find(r=>r.id===runId);
+  if(!run||run.endedAt)return;
+  const now=Date.now();
+  const durationSec=Math.floor((now-run.startedAt)/1000);
+  try{
+    await db.collection('extraction_runs').doc(runId).update({endedAt:now,durationSec});
+    await db.collection('extraction_runs').add({
+      facilityId:FACILITY_ID,
+      sourceTag:run.sourceTag,
+      strain:run.strain,
+      runNumber:2,
+      notes:'',
+      techUid:currentUser?.uid||'',
+      techName:currentUserData?.name||currentUser?.email||'',
+      startedAt:now,
+      endedAt:null,
+      durationSec:null
+    });
+    toast(`Run 1: ${fmtDuration(durationSec)} · Run 2 started ▶`);
+  }catch(e){
+    console.error('lapRun error:',e);
+    toast('⚠ Lap failed — check connection');
   }
 }
 
