@@ -666,7 +666,11 @@ select.fi option{background:#1a2420;}
   <div class="confirm-box" style="max-width:400px;width:100%;">
     <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">Assign Output Tag</div>
     <div style="font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:12px;" id="otag-src"></div>
-    <div id="otag-offgas-banner" hidden style="background:rgba(255,183,77,0.10);border:1px solid rgba(255,183,77,0.28);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-family:var(--mono);font-size:12px;color:#ffb74d;"></div>
+    <div id="otag-offgas-banner" hidden style="background:rgba(255,183,77,0.10);border:1px solid rgba(255,183,77,0.28);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-family:var(--mono);font-size:12px;color:#ffb74d;"></div>
+    <div id="otag-override-row" hidden style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:2px 0;">
+      <input type="checkbox" id="otag-override" onchange="toggleOffGasOverride(this.checked)" style="width:15px;height:15px;accent-color:var(--amber);cursor:pointer;">
+      <label for="otag-override" style="font-family:var(--mono);font-size:11px;color:var(--text2);cursor:pointer;">Override off-gas timer</label>
+    </div>
     <div class="fg" style="margin-bottom:12px;">
       <label class="flabel">Output METRC Tag</label>
       <input id="otag-tag" class="fi" type="text" placeholder="Scan or enter output tag" autocomplete="off" autocapitalize="characters">
@@ -3210,9 +3214,15 @@ function openOutputTagModal(sourceTag){
       const readyTime=new Date(readyAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
       banner.textContent=`⏱ Still off-gassing — ready in ~${remainH}h (est. ${readyTime})`;
       banner.hidden=false;
+      const overrideRow=document.getElementById('otag-override-row');
+      const overrideCb=document.getElementById('otag-override');
+      overrideRow.hidden=false;
+      overrideCb.checked=false;
       submitBtn.disabled=true;
     } else {
       banner.hidden=true;
+      document.getElementById('otag-override-row').hidden=true;
+      document.getElementById('otag-override').checked=false;
       submitBtn.disabled=false;
     }
   } else {
@@ -3223,8 +3233,15 @@ function openOutputTagModal(sourceTag){
   document.getElementById('output-tag-modal').classList.add('vis');
   setTimeout(()=>{ if(!submitBtn.disabled) document.getElementById('otag-tag')?.focus(); },80);
 }
+function toggleOffGasOverride(checked){
+  document.getElementById('otag-submit-btn').disabled=!checked;
+  if(checked) setTimeout(()=>document.getElementById('otag-tag')?.focus(),40);
+}
 function closeOutputTagModal(){
   document.getElementById('output-tag-modal').classList.remove('vis');
+  document.getElementById('otag-offgas-banner').hidden=true;
+  document.getElementById('otag-override-row').hidden=true;
+  document.getElementById('otag-override').checked=false;
   _outputTagSource=null;
 }
 async function submitOutputTag(){
