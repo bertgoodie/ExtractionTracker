@@ -2754,8 +2754,8 @@ function renderExtLog(){
     </div>
     ${isRun1?`
     <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <button class="btn bp" style="flex:1;" onclick="lapRun('${active.id}')">↻ Lap → Run 2</button>
-      <button class="btn bg2" style="flex:0 0 auto;padding:12px 16px;" onclick="stopExtRunPrompt('${active.id}')" title="Stop after Run 1">⏹</button>
+      <button class="btn bp" style="flex:1;padding:14px 8px;font-size:14px;" onclick="beginRun2('${active.id}')">Begin Run 2</button>
+      <button class="btn bg2" style="flex:1;padding:14px 8px;font-size:14px;" onclick="stopExtRunPrompt('${active.id}')">Stop Run 1</button>
     </div>`:`
     <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="stopExtRunPrompt('${active.id}')">⏹ Stop &amp; Save</button>`}`;
   } else {
@@ -2891,7 +2891,7 @@ async function startExtRun(){
   }
 }
 
-async function lapRun(runId){
+async function beginRun2(runId){
   const run=extRuns.find(r=>r.id===runId);
   if(!run||run.endedAt)return;
   const now=Date.now();
@@ -2912,8 +2912,8 @@ async function lapRun(runId){
     });
     toast(`Run 1: ${fmtDuration(durationSec)} · Run 2 started ▶`);
   }catch(e){
-    console.error('lapRun error:',e);
-    toast('⚠ Lap failed — check connection');
+    console.error('beginRun2 error:',e);
+    toast('⚠ Could not begin Run 2 — check connection');
   }
 }
 
