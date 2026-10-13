@@ -676,9 +676,14 @@ select.fi option{background:#1a2420;}
       <label class="flabel">Output METRC Tag</label>
       <input id="otag-tag" class="fi" type="text" placeholder="Scan or enter output tag" autocomplete="off" autocapitalize="characters">
     </div>
-    <div class="fg" style="margin-bottom:16px;">
+    <div class="fg" style="margin-bottom:12px;">
       <label class="flabel">Output Weight (g)</label>
       <input id="otag-weight" class="fi" type="number" placeholder="0.0" step="0.1" min="0">
+    </div>
+    <div class="fg" style="margin-bottom:16px;">
+      <label class="flabel">Crude Batch ID</label>
+      <input id="otag-batchid" class="fi mono" type="text" placeholder="APFR-CRUDE-101326" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:13px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      <div id="otag-bid-hint" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;">Auto-generated · edit if needed</div>
     </div>
     <div class="confirm-btns">
       <button class="btn bg2" onclick="closeOutputTagModal()">Cancel</button>
@@ -3231,6 +3236,27 @@ function openOutputTagModal(sourceTag){
     submitBtn.disabled=false;
   }
 
+  // Generate suggested batch ID from extraction run strain
+  const bidEl=document.getElementById('otag-batchid');
+  if(bidEl){
+    const allRuns=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt);
+    const refRun=allRuns.sort((a,b)=>(b.endedAt||0)-(a.endedAt||0))[0];
+    const strain=refRun?.strain||'';
+    const sc=strCode(strain);
+    const today=todayStr();
+    const suggestedId=sc?makeBatchId(sc,'crude',today):'';
+    bidEl.value=suggestedId;
+    // If batch ID already exists for this tag, show it
+    const existingBatch=batches.find(b=>b.outTag===sourceTag||
+      allRuns.some(r=>r.outputTag&&b.outTag===r.outputTag));
+    if(existingBatch){
+      bidEl.value=existingBatch.batchId;
+      document.getElementById('otag-bid-hint').textContent='Existing batch · edit if needed';
+    } else {
+      document.getElementById('otag-bid-hint').textContent='Auto-generated · edit if needed';
+    }
+  }
+
   document.getElementById('output-tag-modal').classList.add('vis');
   setTimeout(()=>{ if(!submitBtn.disabled) document.getElementById('otag-tag')?.focus(); },80);
 }
@@ -3243,35 +3269,77 @@ function closeOutputTagModal(){
   document.getElementById('otag-offgas-banner').hidden=true;
   document.getElementById('otag-override-row').hidden=true;
   document.getElementById('otag-override').checked=false;
+  document.getElementById('otag-batchid').value='';
   _outputTagSource=null;
 }
 async function submitOutputTag(){
   const sourceTag=_outputTagSource;
   if(!sourceTag)return;
-  const outputTag=document.getElementById('otag-tag').value.trim();
+  const outputTag=document.getElementById('otag-tag').value.trim().toUpperCase();
   const outputWeight=parseFloat(document.getElementById('otag-weight').value)||0;
+  const batchId=document.getElementById('otag-batchid').value.trim().toUpperCase();
   if(!outputTag){toast('Enter the output METRC tag');return;}
   if(!outputWeight){toast('Enter the output weight');return;}
+  if(!batchId){toast('Enter a batch ID');return;}
   const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt);
   if(!runs.length)return;
   runs.sort((a,b)=>(b.runNumber||1)-(a.runNumber||1));
   const lastRun=runs[0];
+  const techName=currentUserData?.name||currentUser?.email||'';
   const btn=document.getElementById('otag-submit-btn');
   btn.disabled=true;
   try{
+    // 1. Update extraction run with output tag
     await db.collection('extraction_runs').doc(lastRun.id).update({
       outputTag,
       outputWeight,
+      batchId,
       outputTagAssignedAt:Date.now(),
-      outputTaggedByName:currentUserData?.name||currentUser?.email||''
+      outputTaggedByName:techName
     });
-    // Dismiss pending tech notifications for this source tag
-    const uid=currentUser?.uid||'';
+
+    // 2. Create crude batch record if one doesn't already exist for this batchId
+    const existing=batches.find(b=>b.batchId===batchId||b.outTag===outputTag);
+    if(!existing){
+      const totalIn=runs.reduce((s,r)=>s,0); // weight tracked via extraction runs
+      const sc=strCode(lastRun.strain||'');
+      const newBatch={
+        id:uid(),
+        batchId,
+        route:'crude',
+        strain:lastRun.strain||'',
+        strainCode:sc,
+        biomassType:'',
+        date:todayStr(),
+        tech:techName,
+        srcPkgs:[{tag:sourceTag,weight:0}],
+        parentIds:[],
+        totalIn:0,
+        outTag:outputTag,
+        outWeight:outputWeight,
+        outWeightInitial:outputWeight,
+        hteWeight:0,hteNewTag:false,hteTag:'',hteBatchId:'',
+        flavor:'',extraOuts:[],
+        yieldPct:0,
+        notes:`Created from extraction run · Source: ${sourceTag}`,
+        status:'purging',
+        createdAt:Date.now(),
+        deviceId,
+        facility:FACILITY_ID,
+        fromExtraction:true,
+        sourceExtTag:sourceTag
+      };
+      await saveDoc(newBatch);
+    }
+
+    // 3. Dismiss pending tech notifications for this source tag
+    const myUid=currentUser?.uid||'';
     const pending=notifications.filter(n=>n.sourceTag===sourceTag&&n.type==='output_tag_needed');
     await Promise.all(pending.map(n=>
-      db.collection('notifications').doc(n.id).update({[`readBy.${uid}`]:Date.now()})
+      db.collection('notifications').doc(n.id).update({[`readBy.${myUid}`]:Date.now()})
     ));
-    // Notify management
+
+    // 4. Notify management
     await db.collection('notifications').add({
       facilityId:FACILITY_ID,
       type:'output_tag_assigned',
@@ -3279,14 +3347,16 @@ async function submitOutputTag(){
       sourceTag,
       outputTag,
       outputWeight,
+      batchId,
       strain:lastRun.strain||'',
-      assignedByName:currentUserData?.name||currentUser?.email||'',
+      assignedByName:techName,
       assignedAt:Date.now(),
       createdAt:Date.now(),
       readBy:{}
     });
+
     closeOutputTagModal();
-    toast(`Output tag assigned · ${outputWeight}g recorded`);
+    toast(`✓ ${batchId} created · ${outputWeight}g`);
   }catch(e){
     console.error('submitOutputTag error:',e);
     toast('⚠ Could not save — check connection');
