@@ -624,15 +624,7 @@ select.fi option{background:#1a2420;}
         <label class="flabel" style="margin:0;">Material Type</label>
         <button id="ext-mat-manage-btn" onclick="openMatManager()" hidden style="background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--accent);cursor:pointer;padding:2px 0;letter-spacing:0.06em;">⚙ MANAGE</button>
       </div>
-      <div style="display:flex;gap:8px;">
-        <select id="ext-material" class="fi" style="flex:1;"></select>
-        <button onclick="openAddMat()" title="Add material type" style="flex-shrink:0;width:42px;height:42px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);color:var(--accent);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">＋</button>
-      </div>
-      <div id="ext-add-mat-row" hidden style="display:flex;gap:8px;margin-top:6px;">
-        <input id="ext-new-mat" class="fi" type="text" placeholder="e.g. Dry Sift" autocomplete="off" autocapitalize="words" style="flex:1;" onkeydown="if(event.key==='Enter')saveNewMat()">
-        <button onclick="saveNewMat()" class="btn bp" style="width:auto;padding:0 14px;font-size:12px;">Add</button>
-        <button onclick="cancelAddMat()" class="btn bg2" style="width:auto;padding:0 14px;font-size:12px;">✕</button>
-      </div>
+      <select id="ext-material" class="fi"></select>
     </div>
 
     <div class="fg" style="margin-bottom:16px;">
@@ -3425,27 +3417,6 @@ function buildMatDropdown(){
   if(mgBtn) mgBtn.hidden=(currentUserData?.role!=='manager');
 }
 
-function openAddMat(){
-  const row=document.getElementById('ext-add-mat-row');
-  if(row){row.hidden=false;setTimeout(()=>document.getElementById('ext-new-mat')?.focus(),40);}
-}
-function cancelAddMat(){
-  document.getElementById('ext-add-mat-row').hidden=true;
-  document.getElementById('ext-new-mat').value='';
-}
-function saveNewMat(){
-  const inp=document.getElementById('ext-new-mat');
-  const name=inp?.value.trim();
-  if(!name){toast('Enter a material type name');return;}
-  const types=getMatTypes();
-  if(types.some(t=>t.toLowerCase()===name.toLowerCase())){toast('Type already exists');return;}
-  types.push(name);
-  saveMatTypes(types);
-  buildMatDropdown();
-  document.getElementById('ext-material').value=name;
-  cancelAddMat();
-  toast(`Added: ${name}`);
-}
 
 // ── Manager-only: manage sheet ──
 function openMatManager(){
