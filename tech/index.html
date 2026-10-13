@@ -3412,9 +3412,13 @@ function buildMatDropdown(){
   const cur=sel.value;
   sel.innerHTML=types.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
   if(cur&&types.includes(cur)) sel.value=cur;
-  // Show manage button only for managers
+  // Managers see ⚙ MANAGE; techs see ＋ ADD (same modal, edit/delete hidden for techs)
   const mgBtn=document.getElementById('ext-mat-manage-btn');
-  if(mgBtn) mgBtn.hidden=(currentUserData?.role!=='manager');
+  if(mgBtn){
+    const isManager=(currentUserData?.role==='manager');
+    mgBtn.hidden=false;
+    mgBtn.textContent=isManager?'⚙ MANAGE':'＋ ADD TYPE';
+  }
 }
 
 
