@@ -619,6 +619,22 @@ select.fi option{background:#1a2420;}
       <input id="ext-strain" class="fi" type="text" placeholder="e.g. Blue Dream" autocomplete="off" autocapitalize="words">
     </div>
 
+    <div class="fg" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <label class="flabel" style="margin:0;">Material Type</label>
+        <button id="ext-mat-manage-btn" onclick="openMatManager()" hidden style="background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--accent);cursor:pointer;padding:2px 0;letter-spacing:0.06em;">⚙ MANAGE</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <select id="ext-material" class="fi" style="flex:1;"></select>
+        <button onclick="openAddMat()" title="Add material type" style="flex-shrink:0;width:42px;height:42px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);color:var(--accent);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">＋</button>
+      </div>
+      <div id="ext-add-mat-row" hidden style="display:flex;gap:8px;margin-top:6px;">
+        <input id="ext-new-mat" class="fi" type="text" placeholder="e.g. Dry Sift" autocomplete="off" autocapitalize="words" style="flex:1;" onkeydown="if(event.key==='Enter')saveNewMat()">
+        <button onclick="saveNewMat()" class="btn bp" style="width:auto;padding:0 14px;font-size:12px;">Add</button>
+        <button onclick="cancelAddMat()" class="btn bg2" style="width:auto;padding:0 14px;font-size:12px;">✕</button>
+      </div>
+    </div>
+
     <div class="fg" style="margin-bottom:16px;">
       <label class="flabel">Run #</label>
       <div style="display:flex;gap:8px;">
@@ -636,6 +652,19 @@ select.fi option{background:#1a2420;}
       <button class="btn bg2" onclick="closeExtStartModal()">Cancel</button>
       <button class="btn bp" id="ext-start-btn" onclick="startExtRun()">▶ Start</button>
     </div>
+  </div>
+</div>
+
+<!-- Material type manager -->
+<div class="output-tag-modal" id="mat-manager-modal" style="z-index:720;">
+  <div class="confirm-box" style="max-width:380px;width:100%;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;">Material Types</div>
+    <div id="mat-manager-list" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input id="mat-mgr-new" class="fi" type="text" placeholder="New type name" autocomplete="off" autocapitalize="words" style="flex:1;" onkeydown="if(event.key==='Enter')saveMgrNewType()">
+      <button onclick="saveMgrNewType()" class="btn bp" style="width:auto;padding:0 14px;font-size:12px;">Add</button>
+    </div>
+    <button class="btn bg2" onclick="closeMatManager()">Done</button>
   </div>
 </div>
 
@@ -2985,6 +3014,7 @@ function openExtStartModal(){
   document.getElementById('ext-src-tag').value='';
   document.getElementById('ext-strain').value='';
   document.getElementById('ext-notes').value='';
+  buildMatDropdown();
   document.getElementById('ext-start-modal').classList.add('vis');
   setTimeout(()=>document.getElementById('ext-src-tag')?.focus(),80);
 }
@@ -3014,6 +3044,7 @@ async function startExtRun(){
   const sourceTag=document.getElementById('ext-src-tag').value.trim();
   const strain=document.getElementById('ext-strain').value.trim();
   const notes=document.getElementById('ext-notes').value.trim();
+  const materialType=document.getElementById('ext-material')?.value||'';
   if(!sourceTag){toast('Scan or enter a source tag');return;}
   if(!strain){toast('Enter strain name');return;}
   if(extRuns.find(r=>!r.endedAt)){toast('An extraction is already in progress');closeExtStartModal();return;}
@@ -3024,6 +3055,7 @@ async function startExtRun(){
       facilityId:FACILITY_ID,
       sourceTag,
       strain,
+      materialType,
       runNumber:_extRunNum,
       notes:notes||'',
       techUid:currentUser?.uid||'',
@@ -3363,6 +3395,122 @@ async function submitOutputTag(){
   }finally{
     btn.disabled=false;
   }
+}
+
+/* ============================================================
+   MATERIAL TYPES
+============================================================ */
+const DEFAULT_MAT_TYPES=['Fresh Frozen','Cured Nug','Cured Trim'];
+
+function getMatTypes(){
+  const stored=settings.materialTypes;
+  if(Array.isArray(stored)&&stored.length) return stored;
+  return [...DEFAULT_MAT_TYPES];
+}
+
+function saveMatTypes(types){
+  settings.materialTypes=types;
+  saveSettings();
+}
+
+function buildMatDropdown(){
+  const sel=document.getElementById('ext-material');
+  if(!sel)return;
+  const types=getMatTypes();
+  const cur=sel.value;
+  sel.innerHTML=types.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
+  if(cur&&types.includes(cur)) sel.value=cur;
+  // Show manage button only for managers
+  const mgBtn=document.getElementById('ext-mat-manage-btn');
+  if(mgBtn) mgBtn.hidden=(currentUserData?.role!=='manager');
+}
+
+function openAddMat(){
+  const row=document.getElementById('ext-add-mat-row');
+  if(row){row.hidden=false;setTimeout(()=>document.getElementById('ext-new-mat')?.focus(),40);}
+}
+function cancelAddMat(){
+  document.getElementById('ext-add-mat-row').hidden=true;
+  document.getElementById('ext-new-mat').value='';
+}
+function saveNewMat(){
+  const inp=document.getElementById('ext-new-mat');
+  const name=inp?.value.trim();
+  if(!name){toast('Enter a material type name');return;}
+  const types=getMatTypes();
+  if(types.some(t=>t.toLowerCase()===name.toLowerCase())){toast('Type already exists');return;}
+  types.push(name);
+  saveMatTypes(types);
+  buildMatDropdown();
+  document.getElementById('ext-material').value=name;
+  cancelAddMat();
+  toast(`Added: ${name}`);
+}
+
+// ── Manager-only: manage sheet ──
+function openMatManager(){
+  renderMatManagerList();
+  document.getElementById('mat-manager-modal').classList.add('vis');
+  setTimeout(()=>document.getElementById('mat-mgr-new')?.focus(),80);
+}
+function closeMatManager(){
+  document.getElementById('mat-manager-modal').classList.remove('vis');
+  document.getElementById('mat-mgr-new').value='';
+  buildMatDropdown(); // refresh dropdown after any changes
+}
+
+function renderMatManagerList(){
+  const isManager=(currentUserData?.role==='manager');
+  const types=getMatTypes();
+  const el=document.getElementById('mat-manager-list');
+  if(!types.length){
+    el.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);">No types yet</div>`;
+    return;
+  }
+  el.innerHTML=types.map((t,i)=>`
+    <div id="mat-row-${i}" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <input class="fi" id="mat-inp-${i}" type="text" value="${t.replace(/"/g,'&quot;')}" style="flex:1;font-size:13px;" ${isManager?'':'readonly'}>
+      ${isManager?`
+        <button onclick="saveMatEdit(${i})" title="Save" style="width:34px;height:34px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--accent);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✓</button>
+        <button onclick="deleteMat(${i})" title="Delete" style="width:34px;height:34px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--red);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+      `:''}
+    </div>`).join('');
+}
+
+function saveMatEdit(i){
+  const inp=document.getElementById(`mat-inp-${i}`);
+  const name=inp?.value.trim();
+  if(!name){toast('Name cannot be empty');return;}
+  const types=getMatTypes();
+  if(types.some((t,j)=>j!==i&&t.toLowerCase()===name.toLowerCase())){toast('Name already exists');return;}
+  types[i]=name;
+  saveMatTypes(types);
+  renderMatManagerList();
+  toast('Updated');
+}
+
+function deleteMat(i){
+  const types=getMatTypes();
+  const name=types[i];
+  showConfirm(`Remove "${name}" from material types?`,()=>{
+    const updated=types.filter((_,j)=>j!==i);
+    saveMatTypes(updated);
+    renderMatManagerList();
+    toast(`Removed: ${name}`);
+  },'Remove','bdr');
+}
+
+function saveMgrNewType(){
+  const inp=document.getElementById('mat-mgr-new');
+  const name=inp?.value.trim();
+  if(!name){toast('Enter a type name');return;}
+  const types=getMatTypes();
+  if(types.some(t=>t.toLowerCase()===name.toLowerCase())){toast('Already exists');return;}
+  types.push(name);
+  saveMatTypes(types);
+  renderMatManagerList();
+  inp.value='';
+  toast(`Added: ${name}`);
 }
 
 /* ============================================================
