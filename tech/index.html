@@ -23,7 +23,7 @@
   --text:#e0ede0;--text2:#8aaa8a;--text3:#4d6e4d;
   --amber:#ffb74d;--red:#ef5350;--blue:#64b5f6;
   --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
-  --r:8px;--rl:12px;--nav:62px;--hdr:50px;
+  --r:8px;--rl:12px;--nav:0px;--hdr:50px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;background:var(--bg);}
@@ -40,19 +40,36 @@ body{font-family:var(--sans);color:var(--text);font-size:14px;-webkit-font-smoot
 
 /* Screens */
 #screens{flex:1;overflow:hidden;position:relative;}
-.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:none;padding:12px 12px calc(var(--nav)+12px);}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:none;padding:12px 12px 88px;}
 .screen.active{display:block;}
 
-/* Bottom nav */
-#bnav{height:var(--nav);background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-shrink:0;}
-.ntab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--text3);transition:color 0.15s;}
-.ntab.act{color:var(--accent);}
-.ntab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;}
-.ntab span{font-size:10px;letter-spacing:0.03em;}
-.ntab.fab-tab{flex:0 0 70px;}
-.fab{width:50px;height:50px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 5px var(--bg2);transition:transform 0.15s;}
-.fab:active{transform:scale(0.91);}
-.fab svg{width:22px;height:22px;stroke:#0d1410;fill:none;stroke-width:2.2;}
+/* ── Side nav drawer ── */
+#nav-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:300;pointer-events:none;transition:background 0.25s;}
+#nav-backdrop.open{background:rgba(0,0,0,0.58);pointer-events:auto;}
+#sidenav{position:fixed;left:0;top:0;bottom:0;width:248px;background:var(--bg2);border-right:1px solid var(--border2);z-index:310;transform:translateX(-100%);transition:transform 0.27s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);}
+#sidenav.open{transform:translateX(0);}
+.snav-hd{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.snav-hd-title{font-size:15px;font-weight:500;}
+.snav-items{flex:1;overflow-y:auto;padding:8px 8px;}
+.snav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;cursor:pointer;color:var(--text2);transition:background 0.12s,color 0.12s;border-radius:var(--r);font-size:14px;margin-bottom:2px;}
+.snav-item:hover{background:var(--bg3);}
+.snav-item.act{color:var(--accent);background:var(--adim);}
+.snav-item svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;flex-shrink:0;}
+.snav-divider{height:1px;background:var(--border);margin:6px 4px 8px;}
+.snav-footer{padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);flex-shrink:0;}
+#snav-email{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:12px;word-break:break-all;line-height:1.4;}
+.snav-signout{display:flex;align-items:center;gap:10px;color:var(--red);cursor:pointer;font-size:13px;padding:6px 0;}
+.snav-signout svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;flex-shrink:0;}
+
+/* ── Hamburger button ── */
+#hdr-ham{width:32px;height:32px;background:none;border:none;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;flex-shrink:0;padding:0;}
+#hdr-ham svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;}
+
+/* ── Floating FAB ── */
+#fab-float{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));width:56px;height:56px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(76,175,80,0.42);cursor:pointer;z-index:200;transition:transform 0.15s,opacity 0.2s;}
+#fab-float:active{transform:scale(0.9);}
+#fab-float svg{width:24px;height:24px;stroke:#0d1410;fill:none;stroke-width:2.2;}
+#fab-float.hidden{opacity:0;pointer-events:none;transform:scale(0.82);}
 
 /* Type */
 .mono{font-family:var(--mono);}
@@ -342,28 +359,16 @@ select.fi option{background:#1a2420;}
 
 
   <header id="hdr">
+    <button id="hdr-ham" onclick="openSideNav()" aria-label="Menu">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <button id="hdr-back" onclick="handleBack()">←</button>
     <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
     <span id="hdr-title">HC Extract</span>
     <button class="hdr-icon" onclick="openSearch()" title="Search batches">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     </button>
-    <button class="hdr-icon" id="hdr-user-btn" onclick="toggleUserMenu()" title="Account" style="position:relative;">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-    </button>
   </header>
-  <!-- User menu dropdown -->
-  <div id="user-menu" style="display:none;position:fixed;top:calc(var(--hdr) + 4px);right:8px;z-index:200;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:8px;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
-    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);padding:4px 8px 8px;border-bottom:1px solid var(--border);" id="user-menu-email">—</div>
-    <button onclick="goToManager()" style="width:100%;background:none;border:none;color:var(--text);font-size:13px;padding:10px 8px;text-align:left;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;" id="user-menu-manager" hidden>
-      <svg width="16" height="16" viewBox="0 0 24 24" style="stroke:currentColor;fill:none;stroke-width:1.6;flex-shrink:0;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Manager View
-    </button>
-    <button onclick="doSignOut()" style="width:100%;background:none;border:none;color:var(--red);font-size:13px;padding:10px 8px;text-align:left;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" style="stroke:currentColor;fill:none;stroke-width:1.6;flex-shrink:0;"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      Sign Out
-    </button>
-  </div>
 
   <div id="screens">
     <div id="screen-dashboard" class="screen active">
@@ -434,27 +439,48 @@ select.fi option{background:#1a2420;}
     </div>
   </div>
 
-  <nav id="bnav">
-    <div class="ntab act" id="ntab-dashboard" onclick="goTo('dashboard')">
+</div>
+
+<!-- ── Side nav backdrop ── -->
+<div id="nav-backdrop" onclick="closeSideNav()"></div>
+
+<!-- ── Side nav drawer ── -->
+<div id="sidenav">
+  <div class="snav-hd">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
+    <span class="snav-hd-title">HC Extract</span>
+  </div>
+  <div class="snav-items">
+    <div class="snav-item act" id="ntab-dashboard" onclick="goTo('dashboard');closeSideNav()">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-      <span>Dashboard</span>
+      Dashboard
     </div>
-    <div class="ntab" id="ntab-extraction-log" onclick="goTo('extraction-log')">
+    <div class="snav-item" id="ntab-extraction-log" onclick="goTo('extraction-log');closeSideNav()">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
-      <span>Ext Log</span>
+      Extraction Log
     </div>
-    <div class="ntab fab-tab" onclick="startNewBatch()">
-      <div class="fab"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
-    </div>
-    <div class="ntab" id="ntab-history" onclick="goTo('history')">
+    <div class="snav-item" id="ntab-history" onclick="goTo('history');closeSideNav()">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 15.5"/></svg>
-      <span>History</span>
+      History
     </div>
-    <div class="ntab" id="ntab-settings" onclick="goTo('settings')">
+    <div class="snav-divider"></div>
+    <div class="snav-item" id="ntab-settings" onclick="goTo('settings');closeSideNav()">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      <span>Settings</span>
+      Settings
     </div>
-  </nav>
+  </div>
+  <div class="snav-footer">
+    <div id="snav-email">—</div>
+    <div class="snav-signout" onclick="doSignOut()">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign Out
+    </div>
+  </div>
+</div>
+
+<!-- ── Floating action button ── -->
+<div id="fab-float" onclick="startNewBatch()">
+  <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </div>
 
 <!-- Complete notification -->
@@ -939,15 +965,18 @@ function goTo(screen){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+screen).classList.add('active');
   curScreen=screen;
-  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('act'));
+  // Update sidenav active state
+  document.querySelectorAll('.snav-item').forEach(t=>t.classList.remove('act'));
   const tabs={
     dashboard:'ntab-dashboard',
     history:'ntab-history',
     settings:'ntab-settings',
     'extraction-log':'ntab-extraction-log'
   };
-  if(tabs[screen])document.getElementById(tabs[screen]).classList.add('act');
+  if(tabs[screen])document.getElementById(tabs[screen])?.classList.add('act');
   const back=document.getElementById('hdr-back');
+  const ham=document.getElementById('hdr-ham');
+  const fab=document.getElementById('fab-float');
   const title=document.getElementById('hdr-title');
   const labels={
     dashboard:'HC Extract',history:'Batch History',settings:'Yield Settings',
@@ -957,7 +986,15 @@ function goTo(screen){
   };
   title.textContent=labels[screen]||'HC Extract';
   const hasBack=['new-batch','batch-detail','active-log','edit-batch'].includes(screen);
-  hasBack?back.classList.add('vis'):back.classList.remove('vis');
+  if(hasBack){
+    back.classList.add('vis');
+    if(ham)ham.style.display='none';
+    if(fab)fab.classList.add('hidden');
+  } else {
+    back.classList.remove('vis');
+    if(ham)ham.style.display='';
+    if(fab)fab.classList.remove('hidden');
+  }
   if(screen==='dashboard')renderDash();
   if(screen==='history')renderHistory();
   if(screen==='settings')renderSettings();
@@ -2639,19 +2676,16 @@ const deviceId=(()=>{
 })();
 
 /* ============================================================
-   USER MENU
+   SIDE NAV
 ============================================================ */
-let _userMenuOpen=false;
-function toggleUserMenu(){
-  _userMenuOpen=!_userMenuOpen;
-  document.getElementById('user-menu').style.display=_userMenuOpen?'block':'none';
+function openSideNav(){
+  document.getElementById('sidenav').classList.add('open');
+  document.getElementById('nav-backdrop').classList.add('open');
 }
-document.addEventListener('click',e=>{
-  if(_userMenuOpen&&!e.target.closest('#user-menu')&&!e.target.closest('#hdr-user-btn')){
-    _userMenuOpen=false;
-    document.getElementById('user-menu').style.display='none';
-  }
-});
+function closeSideNav(){
+  document.getElementById('sidenav').classList.remove('open');
+  document.getElementById('nav-backdrop').classList.remove('open');
+}
 function goToManager(){
   window.location.href='../manager/';
 }
@@ -2925,8 +2959,8 @@ auth.onAuthStateChanged(async user=>{
   currentUser=user;
   currentUserData=data;
 
-  // Populate user menu
-  const emailEl=document.getElementById('user-menu-email');
+  // Populate sidenav footer email
+  const emailEl=document.getElementById('snav-email');
   if(emailEl) emailEl.textContent=user.email||data.name||'Tech';
 
   // Show manager shortcut only for users who have dual access (future use)
