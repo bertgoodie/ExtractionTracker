@@ -165,6 +165,43 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   --text:#1a2e1a;--text2:#4a6e4a;--text3:#7a9a7a;
   color-scheme: light;
 }
+
+/* ── Notification bell ── */
+.notif-badge-wrap{position:relative;display:flex;align-items:center;}
+.notif-count{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;background:#ef5350;border-radius:9px;font-size:10px;font-family:var(--mono);font-weight:600;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none;border:2px solid var(--bg2);}
+
+/* ── Notification panel (bottom sheet) ── */
+.notif-panel{position:fixed;inset:0;z-index:400;display:none;align-items:flex-end;justify-content:center;}
+.notif-panel.vis{display:flex;}
+.notif-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,0.55);}
+.notif-panel-sheet{position:relative;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl) var(--rl) 0 0;width:100%;max-width:520px;max-height:72vh;display:flex;flex-direction:column;z-index:1;}
+@media(min-width:540px){.notif-panel-sheet{border-radius:var(--rl);margin-bottom:32px;}}
+.notif-panel-hdr{display:flex;align-items:center;padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.notif-panel-title{flex:1;font-size:14px;font-weight:500;}
+.notif-panel-mark{background:none;border:none;font-size:12px;font-family:var(--mono);color:var(--accent);cursor:pointer;padding:4px 8px;letter-spacing:0.04em;}
+.notif-panel-close{background:none;border:none;color:var(--text2);cursor:pointer;padding:4px 6px;font-size:16px;line-height:1;}
+.notif-list{overflow-y:auto;flex:1;padding:8px 0;}
+.notif-empty{text-align:center;padding:32px 20px;color:var(--text3);font-size:13px;font-family:var(--mono);}
+.notif-item{display:flex;align-items:flex-start;gap:12px;padding:12px 18px;cursor:pointer;border-bottom:1px solid var(--border);}
+.notif-item:last-child{border-bottom:none;}
+.notif-item.unread{background:rgba(76,175,80,0.04);}
+.notif-item:hover{background:var(--bg3);}
+.notif-item-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(76,175,80,0.12);border:1px solid var(--border2);}
+.notif-item-icon svg{width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:1.8;}
+.notif-item-body{flex:1;min-width:0;}
+.notif-item-head{font-size:13px;font-weight:500;margin-bottom:3px;}
+.notif-item-sub{font-size:12px;color:var(--text2);line-height:1.4;}
+.notif-item-tag{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:4px;}
+.notif-item-time{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;}
+.notif-unread-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px;}
+
+/* ── Off-gas setting row ── */
+.offgas-row{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:16px;}
+.offgas-row-text{flex:1;}
+.offgas-row-label{font-size:13px;font-weight:500;margin-bottom:2px;}
+.offgas-row-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.offgas-row input{width:68px;text-align:center;padding:8px;font-size:16px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;}
+.offgas-row input:focus{border-color:var(--accent);}
 </style>
 </head>
 <body>
@@ -173,6 +210,19 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 <div id="auth-loading">
   <div class="auth-loading-logo">
     <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
+  </div>
+</div>
+
+<!-- Notification panel -->
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-panel-bg" onclick="closeNotifPanel()"></div>
+  <div class="notif-panel-sheet">
+    <div class="notif-panel-hdr">
+      <span class="notif-panel-title">Notifications</span>
+      <button class="notif-panel-mark" onclick="markAllRead()">Mark all read</button>
+      <button class="notif-panel-close" onclick="closeNotifPanel()">✕</button>
+    </div>
+    <div class="notif-list" id="notif-list"><div class="notif-empty">No notifications</div></div>
   </div>
 </div>
 
@@ -239,6 +289,12 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
     <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
     <span id="hdr-title">HC Extract</span>
     <span class="hdr-badge">Manager</span>
+    <div class="notif-badge-wrap">
+      <button class="hdr-icon" id="notif-bell-btn" onclick="openNotifPanel()" title="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      </button>
+      <span class="notif-count" id="notif-badge" hidden></span>
+    </div>
     <button class="hdr-icon" id="hdr-user-btn" onclick="toggleUserMenu()" title="Account">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
     </button>
@@ -317,6 +373,16 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
     </div>
 
     <div class="settings-section">
+      <p class="settings-note">OFF-GAS PERIOD · MINIMUM WAIT TIME BEFORE OUTPUT TAG ASSIGNMENT</p>
+      <div class="offgas-row">
+        <div class="offgas-row-text">
+          <div class="offgas-row-label">Off-Gas Wait</div>
+          <div class="offgas-row-sub">Hours before tech can assign output tag</div>
+        </div>
+        <input id="offgas-hours" type="number" min="1" max="48" step="1" value="12" inputmode="numeric">
+        <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">hrs</span>
+      </div>
+
       <p class="settings-note">BATCH ID PRODUCT CODES · DIAMONDS IS ALWAYS THCa-POW</p>
       <div class="thresh-card" style="padding:8px 14px;" id="code-cards"></div>
 
@@ -365,9 +431,13 @@ const auth        = firebase.auth();
 const authSecond  = firebase.app('manager-secondary').auth();
 const db          = firebase.firestore();
 
+const FACILITY_ID = 'TG-HC';
+
 let currentUser     = null;
 let currentUserData = null;
-let usersUnsubscribe = null;
+let usersUnsubscribe   = null;
+let notifications      = [];
+let _notifUnsubscribe  = null;
 
 /* ── Account dropdown ── */
 let _menuOpen = false;
@@ -567,6 +637,9 @@ let prodSettings = {};
 function loadProdSettings(){
   try{ prodSettings = JSON.parse(localStorage.getItem('hc_settings')||'{}'); }
   catch(e){ prodSettings = {}; }
+  // Populate off-gas input
+  const el = document.getElementById('offgas-hours');
+  if(el) el.value = prodSettings.offGasHours ?? 12;
 }
 function persistProdSettings(){
   localStorage.setItem('hc_settings', JSON.stringify(prodSettings));
@@ -628,6 +701,8 @@ function saveProductionSettings(){
   });
   prodSettings.codes      = codes;
   prodSettings.thresholds = thresh;
+  const offGasVal = parseInt(document.getElementById('offgas-hours')?.value, 10);
+  if(!isNaN(offGasVal) && offGasVal >= 1) prodSettings.offGasHours = offGasVal;
   persistProdSettings();
   // Visual feedback
   const btn = document.querySelector('[onclick="saveProductionSettings()"]');
@@ -646,6 +721,117 @@ function resetProductionSettings(){
     closeConfirm();
   };
   document.getElementById('confirm-overlay').classList.add('open');
+}
+
+/* ── Helpers ── */
+function fmtRelTime(ts){
+  if(!ts) return '';
+  const ms = typeof ts === 'number' ? ts : ts.toMillis?.() || ts.seconds * 1000;
+  const diff = Date.now() - ms;
+  if(diff < 60000)       return 'just now';
+  if(diff < 3600000)     return `${Math.floor(diff/60000)}m ago`;
+  if(diff < 86400000)    return `${Math.floor(diff/3600000)}h ago`;
+  return `${Math.floor(diff/86400000)}d ago`;
+}
+
+/* ── Notifications ── */
+function startNotifListener(){
+  if(_notifUnsubscribe) _notifUnsubscribe();
+  _notifUnsubscribe = db.collection('notifications')
+    .where('facilityId', '==', FACILITY_ID)
+    .where('targetRole', '==', 'manager')
+    .orderBy('createdAt', 'desc')
+    .limit(40)
+    .onSnapshot(snap => {
+      notifications = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      renderNotifBell();
+    }, err => console.error('notifications listener:', err));
+}
+
+function unreadCount(){
+  if(!currentUser) return 0;
+  return notifications.filter(n => !n.readBy?.[currentUser.uid]).length;
+}
+
+function renderNotifBell(){
+  const badge = document.getElementById('notif-badge');
+  const count = unreadCount();
+  if(count > 0){
+    badge.textContent = count > 9 ? '9+' : count;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+  // Re-render list if panel is open
+  const panel = document.getElementById('notif-panel');
+  if(panel.classList.contains('vis')) renderNotifList();
+}
+
+function renderNotifList(){
+  const el = document.getElementById('notif-list');
+  if(!notifications.length){
+    el.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+    return;
+  }
+  el.innerHTML = notifications.map(n => {
+    const isUnread = !n.readBy?.[currentUser?.uid];
+    const ts = fmtRelTime(n.createdAt);
+    let headText = 'Output Tag Ready';
+    let subText  = '';
+    let tagLine  = '';
+
+    if(n.type === 'output_tag_assigned'){
+      headText = 'Output Tag Assigned';
+      subText  = `${n.strain || 'Unknown strain'} · ${n.outputWeight != null ? n.outputWeight + 'g' : ''} · assigned by ${n.assignedByName || 'tech'}`;
+      tagLine  = [n.sourceTag, n.outputTag].filter(Boolean).join(' → ');
+    } else if(n.type === 'output_tag_needed'){
+      headText = 'Off-Gas Complete — Tag Required';
+      subText  = `${n.strain || 'Unknown strain'} is ready for output tag assignment`;
+      tagLine  = n.sourceTag || '';
+    }
+
+    return `<div class="notif-item${isUnread ? ' unread' : ''}" onclick="markNotifRead('${n.id}')">
+      <div class="notif-item-icon">
+        <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      </div>
+      <div class="notif-item-body">
+        <div class="notif-item-head">${headText}</div>
+        <div class="notif-item-sub">${subText}</div>
+        ${tagLine ? `<div class="notif-item-tag">${tagLine}</div>` : ''}
+        <div class="notif-item-time">${ts}</div>
+      </div>
+      ${isUnread ? '<div class="notif-unread-dot"></div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function openNotifPanel(){
+  renderNotifList();
+  document.getElementById('notif-panel').classList.add('vis');
+}
+function closeNotifPanel(){
+  document.getElementById('notif-panel').classList.remove('vis');
+}
+
+async function markNotifRead(id){
+  if(!currentUser) return;
+  try {
+    await db.collection('notifications').doc(id).update({
+      [`readBy.${currentUser.uid}`]: Date.now()
+    });
+  } catch(e){ console.error('markNotifRead:', e); }
+}
+
+async function markAllRead(){
+  if(!currentUser) return;
+  const unread = notifications.filter(n => !n.readBy?.[currentUser.uid]);
+  const batch = db.batch();
+  unread.forEach(n => {
+    batch.update(db.collection('notifications').doc(n.id), {
+      [`readBy.${currentUser.uid}`]: Date.now()
+    });
+  });
+  try { await batch.commit(); } catch(e){ console.error('markAllRead:', e); }
 }
 
 /* ── Auth guard — manager role required ── */
@@ -669,6 +855,7 @@ auth.onAuthStateChanged(async user => {
   loadProdSettings();
   renderProductionSettings();
   loadUsers();
+  try{ startNotifListener(); }catch(e){ console.error('notif listener failed:', e); }
 });
 </script>
 </body>

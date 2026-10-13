@@ -493,6 +493,10 @@ select.fi option{background:#1a2420;}
   </div>
   <div class="snav-footer">
     <div id="snav-email">—</div>
+    <div class="snav-signout" id="user-menu-manager" hidden onclick="window.location.href='../manager/'" style="color:var(--accent);border-color:var(--border2);">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Manager View
+    </div>
     <div class="snav-signout" onclick="doSignOut()">
       <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Sign Out
@@ -3233,8 +3237,7 @@ auth.onAuthStateChanged(async user=>{
 
   const data=snap.data();
   if(!data){ await auth.signOut(); window.location.href='../'; return; }
-  if(data.role==='manager'){ window.location.href='../manager/'; return; }
-  if(data.role!=='tech'){ await auth.signOut(); window.location.href='../'; return; }
+  if(data.role!=='tech' && data.role!=='manager'){ await auth.signOut(); window.location.href='../'; return; }
 
   currentUser=user;
   currentUserData=data;
@@ -3243,8 +3246,9 @@ auth.onAuthStateChanged(async user=>{
   const emailEl=document.getElementById('snav-email');
   if(emailEl) emailEl.textContent=user.email||data.name||'Tech';
 
-  // Show manager shortcut only for users who have dual access (future use)
-  // document.getElementById('user-menu-manager').hidden = data.role!=='manager';
+  // Show Manager View link in account menu for managers
+  const mgrLink = document.getElementById('user-menu-manager');
+  if(mgrLink) mgrLink.hidden = data.role !== 'manager';
 
   // Hide loading overlay and boot
   document.getElementById('auth-loading').style.display='none';
