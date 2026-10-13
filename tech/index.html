@@ -355,13 +355,13 @@ select.fi option{background:#1a2420;}
 /* ── Notification system ── */
 .notif-badge-wrap{position:relative;}
 .notif-count{position:absolute;top:-5px;right:-5px;background:#ef5350;color:#fff;font-family:var(--mono);font-size:9px;font-weight:500;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
-.notif-panel{position:fixed;inset:0;z-index:600;display:none;}
-.notif-panel.vis{display:block;}
+.notif-panel{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;padding:20px;}
+.notif-panel.vis{display:flex;}
 .notif-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,0.65);}
-.notif-panel-sheet{position:absolute;bottom:0;left:0;right:0;max-height:72dvh;background:var(--bg2);border-radius:18px 18px 0 0;border-top:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden;}
+.notif-panel-sheet{position:relative;width:100%;max-width:420px;max-height:78vh;background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden;}
 .notif-panel-hdr{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;}
 .notif-panel-title{font-size:14px;font-weight:500;}
-.notif-list{overflow-y:auto;flex:1;padding:8px 8px 24px;}
+.notif-list{overflow-y:auto;flex:1;padding:8px 8px 16px;}
 .notif-item{padding:12px;border-radius:var(--r);margin-bottom:6px;border:1px solid var(--border);}
 .notif-item.unread{border-color:rgba(255,183,77,0.28);background:rgba(255,183,77,0.05);}
 .notif-item-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px;}
@@ -369,7 +369,7 @@ select.fi option{background:#1a2420;}
 .notif-item-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
 .notif-empty{padding:36px 16px;text-align:center;color:var(--text3);font-size:13px;}
 /* Output tag assignment modal */
-.output-tag-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:710;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+.output-tag-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:710;display:none;align-items:center;justify-content:center;padding:20px;}
 .output-tag-modal.vis{display:flex;}
 
 /* ── Status correction sheet ── */
@@ -2964,6 +2964,21 @@ async function startExtRun(){
   if(!sourceTag){toast('Scan or enter a source tag');return;}
   if(!strain){toast('Enter strain name');return;}
   if(extRuns.find(r=>!r.endedAt)){toast('An extraction is already in progress');closeExtStartModal();return;}
+  // Block if this source tag has completed runs that still need an output tag
+  const tagRuns=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt);
+  if(tagRuns.length>0){
+    const lastRun=tagRuns.sort((a,b)=>b.endedAt-a.endedAt)[0];
+    if(!lastRun.outputTag){
+      const offGasHours=settings.offGasHours||12;
+      const offGasReadyAt=(lastRun.endedAt||0)+offGasHours*3600000;
+      const msg=Date.now()<offGasReadyAt
+        ?'Tag is still off-gassing — assign output tag when ready'
+        :'Tag needs an output tag assigned before it can be re-run';
+      toast(msg);
+      closeExtStartModal();
+      return;
+    }
+  }
   const btn=document.getElementById('ext-start-btn');
   btn.disabled=true;
   try{
