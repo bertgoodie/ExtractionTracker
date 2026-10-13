@@ -665,7 +665,8 @@ select.fi option{background:#1a2420;}
 <div class="output-tag-modal" id="output-tag-modal">
   <div class="confirm-box" style="max-width:400px;width:100%;">
     <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">Assign Output Tag</div>
-    <div style="font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:16px;" id="otag-src"></div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:12px;" id="otag-src"></div>
+    <div id="otag-offgas-banner" hidden style="background:rgba(255,183,77,0.10);border:1px solid rgba(255,183,77,0.28);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-family:var(--mono);font-size:12px;color:#ffb74d;"></div>
     <div class="fg" style="margin-bottom:12px;">
       <label class="flabel">Output METRC Tag</label>
       <input id="otag-tag" class="fi" type="text" placeholder="Scan or enter output tag" autocomplete="off" autocapitalize="characters">
@@ -1307,10 +1308,7 @@ function renderDash(){
       const endedDate=last.endedAt?new Date(last.endedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
       const durStr=totalSec?` · ${fmtDuration(totalSec)}`:'';
       const safeTag=tag.replace(/'/g,"\\'");
-      const actionBtn=isReady
-        ?`<button class="btn bp" style="margin-top:10px;font-size:13px;padding:9px 12px;" onclick="openOutputTagModal('${safeTag}')">Assign Output Tag →</button>`
-        :`<div style="font-family:var(--mono);font-size:11px;color:var(--amber);margin-top:8px;">Off-gassing · ready in ~${remainH}h</div>`;
-      return`<div class="tap-card ${isReady?'tap-ready':'tap-offgas'}" style="flex-direction:column;align-items:stretch;">
+      return`<div class="tap-card ${isReady?'tap-ready':'tap-offgas'}" style="flex-direction:column;align-items:stretch;" onclick="openOutputTagModal('${safeTag}')">
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="tap-icon" style="background:${isReady?'rgba(239,83,80,0.1)':'rgba(255,183,77,0.1)'}">🏷️</div>
           <div class="tap-body">
@@ -1319,7 +1317,6 @@ function renderDash(){
           </div>
           ${isReady?`<span class="tap-pill tap-pill-ready">Ready</span>`:`<span class="tap-pill tap-pill-offgas">~${remainH}h</span>`}
         </div>
-        ${actionBtn}
       </div>`;
     }).join('');
   }
@@ -3197,8 +3194,34 @@ function openOutputTagModal(sourceTag){
   if(el)el.textContent=tagShort(sourceTag);
   document.getElementById('otag-tag').value='';
   document.getElementById('otag-weight').value='';
+
+  // Off-gas readiness check
+  const offGasHours=settings.offGasHours||12;
+  const now3=Date.now();
+  const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt&&!r.outputTag);
+  const banner=document.getElementById('otag-offgas-banner');
+  const submitBtn=document.getElementById('otag-submit-btn');
+  if(runs.length){
+    const lastRun=runs.sort((a,b)=>b.endedAt-a.endedAt)[0];
+    const readyAt=(lastRun.endedAt||0)+offGasHours*3600000;
+    const isReady=now3>=readyAt;
+    if(!isReady){
+      const remainH=Math.ceil((readyAt-now3)/3600000);
+      const readyTime=new Date(readyAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      banner.textContent=`⏱ Still off-gassing — ready in ~${remainH}h (est. ${readyTime})`;
+      banner.hidden=false;
+      submitBtn.disabled=true;
+    } else {
+      banner.hidden=true;
+      submitBtn.disabled=false;
+    }
+  } else {
+    banner.hidden=true;
+    submitBtn.disabled=false;
+  }
+
   document.getElementById('output-tag-modal').classList.add('vis');
-  setTimeout(()=>document.getElementById('otag-tag')?.focus(),80);
+  setTimeout(()=>{ if(!submitBtn.disabled) document.getElementById('otag-tag')?.focus(); },80);
 }
 function closeOutputTagModal(){
   document.getElementById('output-tag-modal').classList.remove('vis');
