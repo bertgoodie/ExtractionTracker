@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HC Extract · Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg:#0d1410;--bg2:#141c16;--bg3:#1a2420;--bg4:#22302a;
+  --border:rgba(76,175,80,0.18);--border2:rgba(76,175,80,0.38);
+  --accent:#4caf50;--adim:rgba(76,175,80,0.13);
+  --text:#e0ede0;--text2:#8aaa8a;--text3:#4d6e4d;
+  --amber:#ffb74d;--red:#ef5350;--blue:#64b5f6;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --r:8px;--rl:12px;--hdr:50px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+
+/* ── Auth loading ── */
+#auth-loading{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;}
+.auth-loading-logo{width:44px;height:44px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;}
+.auth-loading-logo svg{width:24px;height:24px;fill:#0d1410;}
+
+/* ── Layout ── */
+#app{min-height:100%;display:flex;flex-direction:column;}
+#body{flex:1;padding:20px 16px 40px;max-width:900px;margin:0 auto;width:100%;}
+
+/* ── Header ── */
+#hdr{height:var(--hdr);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;position:sticky;top:0;z-index:20;}
+.logo{width:26px;height:26px;background:var(--accent);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo svg{width:14px;height:14px;fill:#0d1410;}
+#hdr-title{flex:1;font-size:14px;font-weight:500;}
+.hdr-badge{font-family:var(--mono);font-size:9px;letter-spacing:0.08em;background:var(--adim);border:1px solid var(--border2);color:var(--accent);padding:3px 7px;border-radius:4px;text-transform:uppercase;}
+.hdr-icon{width:32px;height:32px;background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.hdr-icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;}
+
+/* ── User account menu ── */
+#user-menu{display:none;position:fixed;top:calc(var(--hdr) + 4px);right:8px;z-index:200;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:8px;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.4);}
+#user-menu-email{font-size:11px;color:var(--text3);font-family:var(--mono);padding:4px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+.menu-btn{width:100%;background:none;border:none;color:var(--text);font-size:13px;padding:10px 8px;text-align:left;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;font-family:var(--sans);}
+.menu-btn:hover{background:var(--bg3);}
+.menu-btn.danger{color:var(--red);}
+.menu-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;flex-shrink:0;}
+
+/* ── Section heading row ── */
+.sec-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.sec-heading{font-size:11px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);}
+.sec-action{display:flex;align-items:center;gap:6px;background:var(--adim);border:1px solid var(--border2);color:var(--accent);font-size:12px;font-family:var(--mono);padding:5px 10px;border-radius:6px;cursor:pointer;letter-spacing:0.04em;}
+.sec-action svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;}
+
+/* ── Phase banner ── */
+.phase-banner{background:var(--adim);border:1px solid var(--border2);border-radius:var(--rl);padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:12px;}
+.phase-banner-icon{width:36px;height:36px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.phase-banner-icon svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:1.6;}
+.phase-banner-text h2{font-size:14px;font-weight:500;color:var(--accent);margin-bottom:3px;}
+.phase-banner-text p{font-size:12px;color:var(--text2);line-height:1.5;}
+
+/* ── Dashboard grid ── */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:28px;}
+.dash-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px;}
+.dash-card-title{font-size:10px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+.dash-placeholder{height:64px;background:var(--bg3);border-radius:var(--r);display:flex;align-items:center;justify-content:center;}
+.dash-placeholder span{font-size:11px;color:var(--text3);font-family:var(--mono);}
+
+/* ── Nav shortcut ── */
+.nav-shortcut{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;cursor:pointer;text-decoration:none;color:var(--text);margin-bottom:12px;transition:border-color 0.15s;}
+.nav-shortcut:hover{border-color:var(--border2);}
+.nav-shortcut-icon{width:36px;height:36px;background:var(--adim);border:1px solid var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.nav-shortcut-icon svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:1.6;}
+.nav-shortcut-text{flex:1;}
+.nav-shortcut-label{font-size:14px;font-weight:500;margin-bottom:2px;}
+.nav-shortcut-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.nav-shortcut-arrow{color:var(--text3);}
+
+/* ── User cards ── */
+#user-list{display:flex;flex-direction:column;gap:8px;margin-bottom:28px;}
+.user-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;}
+.user-avatar{width:36px;height:36px;background:var(--bg4);border:1px solid var(--border2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;font-weight:500;color:var(--accent);text-transform:uppercase;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:14px;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-email{font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-badges{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;}
+.badge{font-size:10px;font-family:var(--mono);letter-spacing:0.06em;padding:2px 7px;border-radius:4px;text-transform:uppercase;}
+.badge-manager{background:rgba(100,181,246,0.12);border:1px solid rgba(100,181,246,0.3);color:var(--blue);}
+.badge-tech{background:var(--adim);border:1px solid var(--border2);color:var(--accent);}
+.badge-hc{background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.25);color:var(--amber);}
+.badge-solventless{background:rgba(206,147,216,0.1);border:1px solid rgba(206,147,216,0.25);color:#ce93d8;}
+.badge-you{background:var(--bg3);border:1px solid var(--border);color:var(--text3);}
+.user-remove{background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;transition:color 0.15s;}
+.user-remove:hover{color:var(--red);}
+.user-remove svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;}
+.user-list-empty{text-align:center;padding:24px;color:var(--text3);font-size:13px;font-family:var(--mono);}
+
+/* ── Modal overlay ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+@media(min-width:500px){.modal-overlay{align-items:center;}}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl) var(--rl) 0 0;padding:24px;width:100%;max-width:440px;}
+@media(min-width:500px){.modal{border-radius:var(--rl);}}
+.modal-title{font-size:15px;font-weight:500;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--text2);margin-bottom:20px;}
+.modal-error{font-size:12px;color:var(--red);font-family:var(--mono);min-height:18px;margin-bottom:10px;}
+
+/* ── Form elements ── */
+.fg{margin-bottom:14px;}
+.flabel{display:block;font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;padding:10px 12px;outline:none;transition:border-color 0.15s;}
+.fi:focus{border-color:var(--accent);}
+.fi::placeholder{color:var(--text3);}
+select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234d6e4d' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.pw-wrap{position:relative;}
+.pw-wrap .fi{padding-right:42px;}
+.pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;display:flex;}
+.pw-toggle svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ── Buttons ── */
+.btn-row{display:flex;gap:8px;margin-top:20px;}
+.btn{flex:1;padding:11px;border-radius:var(--r);font-size:14px;font-weight:500;cursor:pointer;border:none;font-family:var(--sans);}
+.btn-cancel{background:var(--bg3);color:var(--text2);border:1px solid var(--border2);}
+.btn-primary{background:var(--accent);color:#0d1410;}
+.btn:disabled{opacity:0.45;cursor:not-allowed;}
+
+/* ── Confirm dialog ── */
+#confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:600;display:none;align-items:center;justify-content:center;padding:20px;}
+#confirm-overlay.open{display:flex;}
+
+/* ── Production settings ── */
+.settings-section{margin-bottom:28px;}
+.thresh-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;}
+.thresh-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.thresh-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.thresh-inputs .fg{margin-bottom:0;}
+.thresh-inputs .fi{font-family:var(--mono);font-size:18px;text-align:center;padding:8px;}
+.code-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.code-row:last-child{border-bottom:none;}
+.code-row-label{display:flex;align-items:center;gap:8px;flex:1;font-size:13px;}
+.code-row-input{width:100px;text-align:center;padding:6px 8px;font-size:14px;font-family:var(--mono);text-transform:uppercase;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;transition:border-color 0.15s;}
+.code-row-input:focus{border-color:var(--accent);}
+.settings-save-row{display:flex;gap:8px;margin-top:16px;}
+.settings-note{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px;line-height:1.7;letter-spacing:0.04em;}
+.confirm-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:24px;width:100%;max-width:320px;}
+.confirm-title{font-size:15px;font-weight:500;margin-bottom:8px;}
+.confirm-body{font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:20px;}
+.confirm-btns{display:flex;gap:8px;}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:#f5f8f5;--bg2:#ffffff;--bg3:#eef2ee;--bg4:#e4ece4;
+    --border:rgba(60,130,60,0.15);--border2:rgba(60,130,60,0.35);
+    --accent:#2e7d32;--adim:rgba(60,130,60,0.08);
+    --text:#1a2e1a;--text2:#4a6e4a;--text3:#7a9a7a;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg:#f5f8f5;--bg2:#ffffff;--bg3:#eef2ee;--bg4:#e4ece4;
+  --border:rgba(60,130,60,0.15);--border2:rgba(60,130,60,0.35);
+  --accent:#2e7d32;--adim:rgba(60,130,60,0.08);
+  --text:#1a2e1a;--text2:#4a6e4a;--text3:#7a9a7a;
+  color-scheme: light;
+}
+
+/* ── Notification bell ── */
+.notif-badge-wrap{position:relative;display:flex;align-items:center;}
+.notif-count{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;background:#ef5350;border-radius:9px;font-size:10px;font-family:var(--mono);font-weight:600;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none;border:2px solid var(--bg2);}
+
+/* ── Notification panel (bottom sheet) ── */
+.notif-panel{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;padding:20px;}
+.notif-panel.vis{display:flex;}
+.notif-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,0.55);}
+.notif-panel-sheet{position:relative;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);width:100%;max-width:480px;max-height:78vh;display:flex;flex-direction:column;z-index:1;overflow:hidden;}
+.notif-panel-hdr{display:flex;align-items:center;padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.notif-panel-title{flex:1;font-size:14px;font-weight:500;}
+.notif-panel-mark{background:none;border:none;font-size:12px;font-family:var(--mono);color:var(--accent);cursor:pointer;padding:4px 8px;letter-spacing:0.04em;}
+.notif-panel-close{background:none;border:none;color:var(--text2);cursor:pointer;padding:4px 6px;font-size:16px;line-height:1;}
+.notif-list{overflow-y:auto;flex:1;padding:8px 0;}
+.notif-empty{text-align:center;padding:32px 20px;color:var(--text3);font-size:13px;font-family:var(--mono);}
+.notif-item{display:flex;align-items:flex-start;gap:12px;padding:12px 18px;cursor:pointer;border-bottom:1px solid var(--border);}
+.notif-item:last-child{border-bottom:none;}
+.notif-item.unread{background:rgba(76,175,80,0.04);}
+.notif-item:hover{background:var(--bg3);}
+.notif-item-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(76,175,80,0.12);border:1px solid var(--border2);}
+.notif-item-icon svg{width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:1.8;}
+.notif-item-body{flex:1;min-width:0;}
+.notif-item-head{font-size:13px;font-weight:500;margin-bottom:3px;}
+.notif-item-sub{font-size:12px;color:var(--text2);line-height:1.4;}
+.notif-item-tag{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:4px;}
+.notif-item-time{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;}
+.notif-unread-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px;}
+
+/* ── Off-gas setting row ── */
+.offgas-row{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:16px;}
+.offgas-row-text{flex:1;}
+.offgas-row-label{font-size:13px;font-weight:500;margin-bottom:2px;}
+.offgas-row-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.offgas-row input{width:68px;text-align:center;padding:8px;font-size:16px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;}
+.offgas-row input:focus{border-color:var(--accent);}
+</style>
+</head>
+<body>
+
+<!-- Auth loading overlay -->
+<div id="auth-loading">
+  <div class="auth-loading-logo">
+    <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
+  </div>
+</div>
+
+<!-- Notification panel -->
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-panel-bg" onclick="closeNotifPanel()"></div>
+  <div class="notif-panel-sheet">
+    <div class="notif-panel-hdr">
+      <span class="notif-panel-title">Notifications</span>
+      <button class="notif-panel-mark" onclick="markAllRead()">Mark all read</button>
+      <button class="notif-panel-close" onclick="closeNotifPanel()">✕</button>
+    </div>
+    <div class="notif-list" id="notif-list"><div class="notif-empty">No notifications</div></div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="add-user-overlay">
+  <div class="modal">
+    <div class="modal-title">Add Team Member</div>
+    <div class="modal-sub">Creates a Firebase login and app access record.</div>
+    <div class="modal-error" id="add-user-error"></div>
+    <div class="fg">
+      <label class="flabel">Full Name</label>
+      <input class="fi" id="new-name" type="text" placeholder="First Last" autocapitalize="words">
+    </div>
+    <div class="fg">
+      <label class="flabel">Email</label>
+      <input class="fi" id="new-email" type="email" placeholder="user@example.com" autocapitalize="none">
+    </div>
+    <div class="fg">
+      <label class="flabel">Password</label>
+      <div class="pw-wrap">
+        <input class="fi" id="new-password" type="password" placeholder="Min. 6 characters">
+        <button class="pw-toggle" onclick="togglePw()" type="button" tabindex="-1">
+          <svg id="pw-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="fg-row">
+      <div class="fg" style="margin-bottom:0;">
+        <label class="flabel">Role</label>
+        <select class="fi" id="new-role">
+          <option value="tech">Tech</option>
+          <option value="manager">Manager</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-bottom:0;">
+        <label class="flabel">Department</label>
+        <select class="fi" id="new-dept">
+          <option value="hc">Hydrocarbon</option>
+          <option value="solventless">Solventless</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-cancel" onclick="closeAddUser()">Cancel</button>
+      <button class="btn btn-primary" id="add-user-btn" onclick="doAddUser()">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Remove Dialog -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirm-title">Remove member?</div>
+    <div class="confirm-body" id="confirm-body">This removes their app access. Their Firebase login account is not deleted.</div>
+    <div class="confirm-btns">
+      <button class="btn btn-cancel" style="flex:1;" onclick="closeConfirm()">Cancel</button>
+      <button class="btn" style="flex:1;background:var(--red);color:#fff;" id="confirm-ok-btn">Remove</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <header id="hdr">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
+    <span id="hdr-title">HC Extract</span>
+    <span class="hdr-badge">Manager</span>
+    <div class="notif-badge-wrap">
+      <button class="hdr-icon" id="notif-bell-btn" onclick="openNotifPanel()" title="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      </button>
+      <span class="notif-count" id="notif-badge" hidden></span>
+    </div>
+    <button class="hdr-icon" id="hdr-user-btn" onclick="toggleUserMenu()" title="Account">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    </button>
+  </header>
+
+  <!-- Account dropdown -->
+  <div id="user-menu">
+    <div id="user-menu-email">—</div>
+    <button class="menu-btn" onclick="window.location.href='../tech/'">
+      <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+      Tech View
+    </button>
+    <button class="menu-btn danger" onclick="doSignOut()">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign Out
+    </button>
+  </div>
+
+  <div id="body">
+
+    <!-- Coming soon banner -->
+    <div class="phase-banner">
+      <div class="phase-banner-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      <div class="phase-banner-text">
+        <h2>Manager Dashboard</h2>
+        <p>Analytics and reporting arrive in Phase 3. Team management is live now.</p>
+      </div>
+    </div>
+
+    <!-- Analytics placeholders -->
+    <div class="sec-row"><span class="sec-heading">Coming in Phase 3</span></div>
+    <div class="dash-grid">
+      <div class="dash-card">
+        <div class="dash-card-title">Yield Trends</div>
+        <div class="dash-placeholder"><span>Weekly / Monthly / Quarterly</span></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Biomass Throughput</div>
+        <div class="dash-placeholder"><span>By strain · by product</span></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Tag Assignment Status</div>
+        <div class="dash-placeholder"><span>Untagged · In Progress · Complete</span></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Inventory Turnover</div>
+        <div class="dash-placeholder"><span>Crude · Badder · Diamonds</span></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Processing Times</div>
+        <div class="dash-placeholder"><span>Stage 1 · 2 · 3 averages</span></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Tech Activity Log</div>
+        <div class="dash-placeholder"><span>Per-operator history</span></div>
+      </div>
+    </div>
+
+    <!-- Team management — live now -->
+    <div class="sec-row">
+      <span class="sec-heading">Team</span>
+      <button class="sec-action" onclick="openAddUser()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Member
+      </button>
+    </div>
+    <div id="user-list">
+      <div class="user-list-empty">Loading team…</div>
+    </div>
+
+    <!-- Production Settings -->
+    <div class="sec-row settings-section" style="margin-top:4px;">
+      <span class="sec-heading">Production Settings</span>
+    </div>
+
+    <div class="settings-section">
+      <p class="settings-note">OFF-GAS PERIOD · MINIMUM WAIT TIME BEFORE OUTPUT TAG ASSIGNMENT</p>
+      <div class="offgas-row">
+        <div class="offgas-row-text">
+          <div class="offgas-row-label">Off-Gas Wait</div>
+          <div class="offgas-row-sub">Hours before tech can assign output tag</div>
+        </div>
+        <input id="offgas-hours" type="number" min="1" max="48" step="1" value="12" inputmode="numeric">
+        <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">hrs</span>
+      </div>
+
+      <p class="settings-note">BATCH ID PRODUCT CODES · DIAMONDS IS ALWAYS THCa-POW</p>
+      <div class="thresh-card" style="padding:8px 14px;" id="code-cards"></div>
+
+      <p class="settings-note" style="margin-top:16px;">YIELD THRESHOLDS · GREEN = GOOD · AMBER = OK · RED = LOW</p>
+      <div id="thresh-cards"></div>
+
+      <div class="settings-save-row">
+        <button class="btn btn-primary" onclick="saveProductionSettings()" style="flex:1;max-width:220px;">Save Settings</button>
+        <button class="btn btn-cancel" onclick="resetProductionSettings()" style="flex:0 0 auto;padding:11px 16px;">Reset to Defaults</button>
+      </div>
+    </div>
+
+    <!-- Quick access -->
+    <div class="sec-row" style="margin-top:4px;"><span class="sec-heading">Quick Access</span></div>
+    <a class="nav-shortcut" href="../tech/">
+      <div class="nav-shortcut-icon">
+        <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+      </div>
+      <div class="nav-shortcut-text">
+        <div class="nav-shortcut-label">Tech View</div>
+        <div class="nav-shortcut-sub">Batch creation · Tag assignment · Weight updates</div>
+      </div>
+      <span class="nav-shortcut-arrow">→</span>
+    </a>
+
+  </div>
+</div>
+
+<script>
+/* ── Firebase init ── */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAyjFEDxjsl26ryUmFF41e0VLs5Vhpx2EU",
+  authDomain:        "extractiontracker.firebaseapp.com",
+  projectId:         "extractiontracker",
+  storageBucket:     "extractiontracker.firebasestorage.app",
+  messagingSenderId: "735518638661",
+  appId:             "1:735518638661:web:cf646ede8943d4baffd92c"
+};
+
+// Default app — shares the auth session established on the login page
+firebase.initializeApp(FIREBASE_CONFIG);
+// Secondary named app — used to create new users without signing out the manager
+firebase.initializeApp(FIREBASE_CONFIG, 'manager-secondary');
+
+const auth        = firebase.auth();
+const authSecond  = firebase.app('manager-secondary').auth();
+const db          = firebase.firestore();
+
+const FACILITY_ID = 'TG-HC';
+
+let currentUser     = null;
+let currentUserData = null;
+let usersUnsubscribe   = null;
+let notifications      = [];
+let _notifUnsubscribe  = null;
+
+/* ── Account dropdown ── */
+let _menuOpen = false;
+function toggleUserMenu(){
+  _menuOpen = !_menuOpen;
+  document.getElementById('user-menu').style.display = _menuOpen ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  if(_menuOpen && !e.target.closest('#user-menu') && !e.target.closest('#hdr-user-btn')){
+    _menuOpen = false;
+    document.getElementById('user-menu').style.display = 'none';
+  }
+});
+async function doSignOut(){
+  if(usersUnsubscribe) usersUnsubscribe();
+  await auth.signOut();
+  window.location.href = '../';
+}
+
+/* ── User list rendering ── */
+function renderUsers(users){
+  const el = document.getElementById('user-list');
+  if(!users.length){
+    el.innerHTML = '<div class="user-list-empty">No team members yet.</div>';
+    return;
+  }
+  el.innerHTML = users.map(u => {
+    const isYou = currentUser && u.id === currentUser.uid;
+    const initials = (u.name||u.email||'?').charAt(0).toUpperCase();
+    const roleBadge = u.role === 'manager'
+      ? '<span class="badge badge-manager">Manager</span>'
+      : '<span class="badge badge-tech">Tech</span>';
+    const deptBadge = u.dept === 'hc'
+      ? '<span class="badge badge-hc">HC</span>'
+      : '<span class="badge badge-solventless">Solventless</span>';
+    const youBadge = isYou ? '<span class="badge badge-you">You</span>' : '';
+    const removeBtn = isYou ? '' :
+      `<button class="user-remove" onclick="confirmRemove('${u.id}','${(u.name||u.email).replace(/'/g,"\\'")}')">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      </button>`;
+    return `
+      <div class="user-card">
+        <div class="user-avatar">${initials}</div>
+        <div class="user-info">
+          <div class="user-name">${u.name || '—'}</div>
+          <div class="user-email">${u.email || u.id}</div>
+          <div class="user-badges">${roleBadge}${deptBadge}${youBadge}</div>
+        </div>
+        ${removeBtn}
+      </div>`;
+  }).join('');
+}
+
+function loadUsers(){
+  usersUnsubscribe = db.collection('users').onSnapshot(snap => {
+    const users = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    users.sort((a,b) => {
+      // Manager first, then alphabetical by name
+      if(a.role !== b.role) return a.role === 'manager' ? -1 : 1;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+    renderUsers(users);
+  }, err => {
+    console.error('users listener error', err);
+    document.getElementById('user-list').innerHTML =
+      '<div class="user-list-empty">Could not load team.</div>';
+  });
+}
+
+/* ── Add user modal ── */
+function openAddUser(){
+  document.getElementById('add-user-error').textContent = '';
+  document.getElementById('new-name').value     = '';
+  document.getElementById('new-email').value    = '';
+  document.getElementById('new-password').value = '';
+  document.getElementById('new-role').value     = 'tech';
+  document.getElementById('new-dept').value     = 'hc';
+  document.getElementById('add-user-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('new-name').focus(), 100);
+}
+function closeAddUser(){
+  document.getElementById('add-user-overlay').classList.remove('open');
+}
+function togglePw(){
+  const input = document.getElementById('new-password');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function doAddUser(){
+  const name     = document.getElementById('new-name').value.trim();
+  const email    = document.getElementById('new-email').value.trim();
+  const password = document.getElementById('new-password').value;
+  const role     = document.getElementById('new-role').value;
+  const dept     = document.getElementById('new-dept').value;
+  const errEl    = document.getElementById('add-user-error');
+  const btn      = document.getElementById('add-user-btn');
+
+  errEl.textContent = '';
+  if(!name)     { errEl.textContent = 'Name is required.';          return; }
+  if(!email)    { errEl.textContent = 'Email is required.';         return; }
+  if(password.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  try {
+    // Create Auth account using secondary app — manager session unaffected
+    const cred = await authSecond.createUserWithEmailAndPassword(email, password);
+    const uid  = cred.user.uid;
+    await authSecond.signOut();
+
+    // Write Firestore user record
+    await db.collection('users').doc(uid).set({
+      name, email, role, dept,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUser.uid
+    });
+
+    closeAddUser();
+  } catch(e) {
+    switch(e.code){
+      case 'auth/email-already-in-use':
+        errEl.textContent = 'That email already has an account.'; break;
+      case 'auth/invalid-email':
+        errEl.textContent = 'Invalid email address.'; break;
+      case 'auth/weak-password':
+        errEl.textContent = 'Password is too weak.'; break;
+      default:
+        errEl.textContent = 'Failed to create account. Try again.';
+        console.error(e);
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add Member';
+  }
+}
+
+/* ── Remove user confirm ── */
+let _pendingRemoveId = null;
+function confirmRemove(uid, name){
+  _pendingRemoveId = uid;
+  document.getElementById('confirm-title').textContent = `Remove ${name}?`;
+  document.getElementById('confirm-body').textContent =
+    `${name} will lose access to the app immediately. Their Firebase login account is not deleted — contact Firebase Console to fully remove it.`;
+  document.getElementById('confirm-ok-btn').onclick = doRemoveUser;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function closeConfirm(){
+  _pendingRemoveId = null;
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+async function doRemoveUser(){
+  if(!_pendingRemoveId) return;
+  document.getElementById('confirm-ok-btn').textContent = 'Removing…';
+  document.getElementById('confirm-ok-btn').disabled = true;
+  try {
+    await db.collection('users').doc(_pendingRemoveId).delete();
+    closeConfirm();
+  } catch(e) {
+    console.error('remove user error', e);
+    document.getElementById('confirm-ok-btn').textContent = 'Remove';
+    document.getElementById('confirm-ok-btn').disabled = false;
+  }
+}
+
+/* ── Close modals on overlay click ── */
+document.getElementById('add-user-overlay').addEventListener('click', e => {
+  if(e.target === e.currentTarget) closeAddUser();
+});
+document.getElementById('confirm-overlay').addEventListener('click', e => {
+  if(e.target === e.currentTarget) closeConfirm();
+});
+
+/* ── Production settings ── */
+const ROUTES = {
+  'crude':           {label:'Crude Oil',           code:'CRUDE', icon:'🛢'},
+  'live-badder':     {label:'Live Badder',          code:'LBDR',  icon:'🍯'},
+  'cured-badder':    {label:'Cured Badder',         code:'CBDR',  icon:'🍯'},
+  'diamonds':        {label:'Diamonds / THCa',      code:'DMND',  icon:'💎'},
+  'lr-vape':         {label:'Live Resin Vape',      code:'LRV',   icon:'🌿'},
+  'cr-vape':         {label:'Cured Resin Vape',     code:'CRV',   icon:'🌾'},
+  'liquid-diamonds': {label:'Liquid Diamonds',      code:'LQDM',  icon:'💧'},
+  'ld-vape':         {label:'Liquid Diamond Vape',  code:'LDV',   icon:'💨'},
+};
+const DEFAULT_THRESH = {
+  'crude':           {hi:10,  mid:6},
+  'live-badder':     {hi:14,  mid:9},
+  'cured-badder':    {hi:12,  mid:8},
+  'diamonds':        {hi:55,  mid:35},
+  'liquid-diamonds': {hi:82,  mid:65},
+  'lr-vape':         {hi:80,  mid:60},
+  'cr-vape':         {hi:80,  mid:60},
+  'ld-vape':         {hi:80,  mid:60},
+};
+
+let prodSettings = {};
+function loadProdSettings(){
+  try{ prodSettings = JSON.parse(localStorage.getItem('hc_settings')||'{}'); }
+  catch(e){ prodSettings = {}; }
+  // Populate off-gas input
+  const el = document.getElementById('offgas-hours');
+  if(el) el.value = prodSettings.offGasHours ?? 12;
+}
+function persistProdSettings(){
+  localStorage.setItem('hc_settings', JSON.stringify(prodSettings));
+}
+function getRouteCode(key){
+  return (prodSettings.codes?.[key]) || ROUTES[key]?.code || key.toUpperCase();
+}
+function getThresh(key){
+  const s = prodSettings.thresholds?.[key];
+  const d = DEFAULT_THRESH[key] || {hi:12, mid:8};
+  return s || d;
+}
+
+function renderProductionSettings(){
+  // Product codes card
+  const codeRoutes = Object.entries(ROUTES).filter(([k]) => k !== 'diamonds');
+  document.getElementById('code-cards').innerHTML = codeRoutes.map(([key,r]) => {
+    const cur = getRouteCode(key);
+    return `<div class="code-row">
+      <div class="code-row-label">
+        <span style="font-size:15px">${r.icon}</span>
+        <span>${r.label}</span>
+      </div>
+      <input id="pc-${key}" class="code-row-input" type="text" value="${cur}"
+        maxlength="8" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    </div>`;
+  }).join('');
+
+  // Yield threshold cards
+  document.getElementById('thresh-cards').innerHTML = Object.entries(ROUTES).map(([key,r]) => {
+    const t = getThresh(key);
+    return `<div class="thresh-card">
+      <div class="thresh-header">
+        <span style="font-size:16px">${r.icon}</span>
+        <span style="font-weight:500;font-size:13px">${r.label}</span>
+        <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text3);">${getRouteCode(key)}</span>
+      </div>
+      <div class="thresh-inputs">
+        <div class="fg"><label class="flabel">Good ≥ (%)</label>
+          <input id="th-hi-${key}" class="fi thresh-inputs" type="number" step="0.5" min="0" max="100" value="${t.hi}" inputmode="decimal"></div>
+        <div class="fg"><label class="flabel">OK ≥ (%)</label>
+          <input id="th-mid-${key}" class="fi thresh-inputs" type="number" step="0.5" min="0" max="100" value="${t.mid}" inputmode="decimal"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function saveProductionSettings(){
+  const codes = {};
+  Object.keys(ROUTES).filter(k => k !== 'diamonds').forEach(key => {
+    const v = document.getElementById(`pc-${key}`)?.value.trim().toUpperCase();
+    if(v) codes[key] = v;
+  });
+  const thresh = {};
+  Object.keys(ROUTES).forEach(key => {
+    const hi  = parseFloat(document.getElementById(`th-hi-${key}`)?.value)  || DEFAULT_THRESH[key]?.hi  || 10;
+    const mid = parseFloat(document.getElementById(`th-mid-${key}`)?.value) || DEFAULT_THRESH[key]?.mid || 6;
+    thresh[key] = {hi, mid};
+  });
+  prodSettings.codes      = codes;
+  prodSettings.thresholds = thresh;
+  const offGasVal = parseInt(document.getElementById('offgas-hours')?.value, 10);
+  if(!isNaN(offGasVal) && offGasVal >= 1) prodSettings.offGasHours = offGasVal;
+  persistProdSettings();
+  // Visual feedback
+  const btn = document.querySelector('[onclick="saveProductionSettings()"]');
+  if(btn){ const orig = btn.textContent; btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = orig, 1800); }
+}
+
+function resetProductionSettings(){
+  document.getElementById('confirm-title').textContent = 'Reset to defaults?';
+  document.getElementById('confirm-body').textContent  = 'All product codes and yield thresholds will return to their factory values.';
+  document.getElementById('confirm-ok-btn').textContent = 'Reset';
+  document.getElementById('confirm-ok-btn').style.background = 'var(--accent)';
+  document.getElementById('confirm-ok-btn').onclick = () => {
+    prodSettings = {};
+    persistProdSettings();
+    renderProductionSettings();
+    closeConfirm();
+  };
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+/* ── Helpers ── */
+function fmtRelTime(ts){
+  if(!ts) return '';
+  const ms = typeof ts === 'number' ? ts : ts.toMillis?.() || ts.seconds * 1000;
+  const diff = Date.now() - ms;
+  if(diff < 60000)       return 'just now';
+  if(diff < 3600000)     return `${Math.floor(diff/60000)}m ago`;
+  if(diff < 86400000)    return `${Math.floor(diff/3600000)}h ago`;
+  return `${Math.floor(diff/86400000)}d ago`;
+}
+
+/* ── Notifications ── */
+function startNotifListener(){
+  if(_notifUnsubscribe) _notifUnsubscribe();
+  _notifUnsubscribe = db.collection('notifications')
+    .where('facilityId', '==', FACILITY_ID)
+    .where('targetRole', '==', 'manager')
+    .orderBy('createdAt', 'desc')
+    .limit(40)
+    .onSnapshot(snap => {
+      notifications = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      renderNotifBell();
+    }, err => console.error('notifications listener:', err));
+}
+
+function unreadCount(){
+  if(!currentUser) return 0;
+  return notifications.filter(n => !n.readBy?.[currentUser.uid]).length;
+}
+
+function renderNotifBell(){
+  const badge = document.getElementById('notif-badge');
+  const count = unreadCount();
+  if(count > 0){
+    badge.textContent = count > 9 ? '9+' : count;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+  // Re-render list if panel is open
+  const panel = document.getElementById('notif-panel');
+  if(panel.classList.contains('vis')) renderNotifList();
+}
+
+function renderNotifList(){
+  const el = document.getElementById('notif-list');
+  if(!notifications.length){
+    el.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+    return;
+  }
+  el.innerHTML = notifications.map(n => {
+    const isUnread = !n.readBy?.[currentUser?.uid];
+    const ts = fmtRelTime(n.createdAt);
+    let headText = 'Output Tag Ready';
+    let subText  = '';
+    let tagLine  = '';
+
+    if(n.type === 'output_tag_assigned'){
+      headText = 'Output Tag Assigned';
+      subText  = `${n.strain || 'Unknown strain'} · ${n.outputWeight != null ? n.outputWeight + 'g' : ''} · assigned by ${n.assignedByName || 'tech'}`;
+      tagLine  = [n.sourceTag, n.outputTag].filter(Boolean).join(' → ');
+    } else if(n.type === 'output_tag_needed'){
+      headText = 'Off-Gas Complete — Tag Required';
+      subText  = `${n.strain || 'Unknown strain'} is ready for output tag assignment`;
+      tagLine  = n.sourceTag || '';
+    }
+
+    return `<div class="notif-item${isUnread ? ' unread' : ''}" onclick="markNotifRead('${n.id}')">
+      <div class="notif-item-icon">
+        <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      </div>
+      <div class="notif-item-body">
+        <div class="notif-item-head">${headText}</div>
+        <div class="notif-item-sub">${subText}</div>
+        ${tagLine ? `<div class="notif-item-tag">${tagLine}</div>` : ''}
+        <div class="notif-item-time">${ts}</div>
+      </div>
+      ${isUnread ? '<div class="notif-unread-dot"></div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function openNotifPanel(){
+  renderNotifList();
+  document.getElementById('notif-panel').classList.add('vis');
+}
+function closeNotifPanel(){
+  document.getElementById('notif-panel').classList.remove('vis');
+}
+
+async function markNotifRead(id){
+  if(!currentUser) return;
+  try {
+    await db.collection('notifications').doc(id).update({
+      [`readBy.${currentUser.uid}`]: Date.now()
+    });
+  } catch(e){ console.error('markNotifRead:', e); }
+}
+
+async function markAllRead(){
+  if(!currentUser) return;
+  const unread = notifications.filter(n => !n.readBy?.[currentUser.uid]);
+  const batch = db.batch();
+  unread.forEach(n => {
+    batch.update(db.collection('notifications').doc(n.id), {
+      [`readBy.${currentUser.uid}`]: Date.now()
+    });
+  });
+  try { await batch.commit(); } catch(e){ console.error('markAllRead:', e); }
+}
+
+/* ── Auth guard — manager role required ── */
+auth.onAuthStateChanged(async user => {
+  if(!user){ window.location.href = '../'; return; }
+
+  let snap;
+  try{ snap = await db.collection('users').doc(user.uid).get(); }
+  catch(e){ await auth.signOut(); window.location.href = '../'; return; }
+
+  const data = snap.data();
+  if(!data){ await auth.signOut(); window.location.href = '../'; return; }
+  if(data.role !== 'manager'){ window.location.href = '../tech/'; return; }
+
+  currentUser     = user;
+  currentUserData = data;
+
+  document.getElementById('user-menu-email').textContent = user.email || data.name || 'Manager';
+  document.getElementById('auth-loading').style.display  = 'none';
+
+  loadProdSettings();
+  renderProductionSettings();
+  loadUsers();
+  try{ startNotifListener(); }catch(e){ console.error('notif listener failed:', e); }
+});
+</script>
+</body>
+</html>

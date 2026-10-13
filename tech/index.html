@@ -1,0 +1,3564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HC Extract · METRC Batch Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- BarcodeDetector is native in Chrome. ZXing is the Safari/iOS fallback -->
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
+<style>
+/* ── Full-screen auth loading ── */
+#auth-loading{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;}
+.auth-loading-logo{width:44px;height:44px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;}
+.auth-loading-logo svg{width:24px;height:24px;fill:#0d1410;}
+
+:root {
+  --bg:#0d1410;--bg2:#141c16;--bg3:#1a2420;--bg4:#22302a;
+  --border:rgba(76,175,80,0.18);--border2:rgba(76,175,80,0.38);
+  --accent:#4caf50;--adim:rgba(76,175,80,0.13);
+  --text:#e0ede0;--text2:#8aaa8a;--text3:#4d6e4d;
+  --amber:#ffb74d;--red:#ef5350;--blue:#64b5f6;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --r:8px;--rl:12px;--nav:0px;--hdr:50px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:var(--sans);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased;}
+#app{height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* Header */
+#hdr{height:var(--hdr);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0;z-index:20;}
+#hdr-back{width:32px;height:32px;background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:16px;cursor:pointer;display:none;align-items:center;justify-content:center;}
+#hdr-back.vis{display:flex;}
+#hdr-title{flex:1;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.logo{width:26px;height:26px;background:var(--accent);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo svg{width:14px;height:14px;fill:#0d1410;}
+
+/* Screens */
+#screens{flex:1;overflow:hidden;position:relative;}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:none;padding:12px 12px 88px;}
+.screen.active{display:block;}
+
+/* ── Side nav drawer ── */
+#nav-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:300;pointer-events:none;transition:background 0.25s;}
+#nav-backdrop.open{background:rgba(0,0,0,0.58);pointer-events:auto;}
+#sidenav{position:fixed;left:0;top:0;bottom:0;width:248px;background:var(--bg2);border-right:1px solid var(--border2);z-index:310;transform:translateX(-100%);transition:transform 0.27s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);}
+#sidenav.open{transform:translateX(0);}
+.snav-hd{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.snav-hd-title{font-size:15px;font-weight:500;}
+.snav-items{flex:1;overflow-y:auto;padding:8px 8px;}
+.snav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;cursor:pointer;color:var(--text2);transition:background 0.12s,color 0.12s;border-radius:var(--r);font-size:14px;margin-bottom:2px;}
+.snav-item:hover{background:var(--bg3);}
+.snav-item.act{color:var(--accent);background:var(--adim);}
+.snav-item svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;flex-shrink:0;}
+.snav-divider{height:1px;background:var(--border);margin:6px 4px 8px;}
+.snav-footer{padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);flex-shrink:0;}
+#snav-email{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:12px;word-break:break-all;line-height:1.4;}
+.snav-signout{display:flex;align-items:center;gap:10px;color:var(--red);cursor:pointer;font-size:13px;padding:6px 0;}
+.snav-signout svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;flex-shrink:0;}
+
+/* ── Hamburger button ── */
+#hdr-ham{width:32px;height:32px;background:none;border:none;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;flex-shrink:0;padding:0;}
+#hdr-ham svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;}
+
+/* ── Floating FAB ── */
+#fab-float{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));width:56px;height:56px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(76,175,80,0.42);cursor:pointer;z-index:200;transition:transform 0.15s,opacity 0.2s;}
+#fab-float:active{transform:scale(0.9);}
+#fab-float svg{width:24px;height:24px;stroke:#0d1410;fill:none;stroke-width:2.2;}
+#fab-float.hidden{opacity:0;pointer-events:none;transform:scale(0.82);}
+
+/* Type */
+.mono{font-family:var(--mono);}
+.sec{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 8px;}
+.sec:first-child{margin-top:0;}
+.accent{color:var(--accent);}
+
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s;}
+.card:active{border-color:var(--border2);}
+.card.nc{cursor:default;}
+.card-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.card-title{font-size:13.5px;font-weight:500;}
+.card-sub{font-size:11.5px;color:var(--text2);margin-top:2px;font-family:var(--mono);}
+
+/* Badges */
+.badge{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:100px;white-space:nowrap;flex-shrink:0;}
+.bg{background:rgba(76,175,80,0.14);color:#81c784;border:1px solid rgba(76,175,80,0.28);}
+.ba{background:rgba(255,183,77,0.13);color:#ffb74d;border:1px solid rgba(255,183,77,0.28);}
+.br{background:rgba(239,83,80,0.12);color:#ef5350;border:1px solid rgba(239,83,80,0.28);}
+.bx{background:rgba(255,255,255,0.05);color:var(--text2);border:1px solid var(--border);}
+
+/* Stats grid */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.scard{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;}
+.slabel{font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.sval{font-family:var(--mono);font-size:21px;font-weight:500;line-height:1;}
+.sunit{font-size:12px;color:var(--text2);margin-left:2px;}
+.sval.sm{font-size:16px;}
+
+/* Section strip */
+.dash-strip{display:flex;align-items:center;gap:8px;margin:10px 0 6px;}
+.ds-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap;}
+.ds-line{flex:1;height:1px;background:var(--border);}
+
+/* Yield bar */
+.ybar{height:3px;background:var(--bg4);border-radius:2px;margin-top:8px;overflow:hidden;}
+.yfill{height:100%;border-radius:2px;transition:width 0.4s;}
+
+/* Yield display */
+.ydisplay{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);padding:16px;text-align:center;margin-bottom:10px;}
+.ypct{font-family:var(--mono);font-size:44px;font-weight:500;line-height:1;letter-spacing:-0.02em;}
+.ysub{font-size:12px;color:var(--text2);margin-top:4px;}
+.yform{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:6px;}
+
+/* Step dots */
+.steps{display:flex;align-items:center;margin-bottom:14px;}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--bg4);flex-shrink:0;transition:all 0.2s;}
+.sdot.act{background:var(--accent);width:18px;border-radius:4px;}
+.sdot.done{background:#2e7d32;}
+.sline{flex:1;height:1px;background:var(--border);}
+
+/* Form */
+.fg{margin-bottom:12px;}
+.flabel{display:block;font-family:var(--mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2);margin-bottom:5px;}
+.req{color:var(--accent);}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:15px;padding:10px 12px;outline:none;transition:border-color 0.15s;-webkit-appearance:none;appearance:none;}
+.fi:focus{border-color:var(--accent);}
+.fi::placeholder{color:var(--text3);}
+.fi.mono{font-family:var(--mono);font-size:12.5px;letter-spacing:0.04em;}
+.fhint{font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono);}
+.row2{display:flex;gap:8px;}
+.row2 .fg{flex:1;}
+select.fi{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234d6e4d'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer;}
+select.fi option{background:#1a2420;}
+
+/* Scan group */
+.sg{display:flex;gap:8px;}
+.sg .fi{flex:1;}
+.scanbtn{flex-shrink:0;width:42px;height:42px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--accent);}
+.scanbtn:active{background:var(--adim);}
+.scanbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;}
+
+/* Buttons */
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:13px 16px;border-radius:var(--r);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;border:none;transition:transform 0.12s,opacity 0.12s;}
+.btn:active{transform:scale(0.97);}
+.btn:disabled{opacity:0.38;pointer-events:none;}
+.bp{background:var(--accent);color:#0d1410;}
+.bs{background:var(--bg3);color:var(--text);border:1px solid var(--border2);}
+.bg2{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.bdr{background:rgba(239,83,80,0.1);color:var(--red);border:1px solid rgba(239,83,80,0.28);}
+.btns{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+
+/* Route cards */
+.rcard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.15s;margin-bottom:7px;}
+.rcard:active{transform:scale(0.99);}
+.rcard.sel{border-color:var(--accent);background:var(--adim);}
+.ricon{width:38px;height:38px;background:var(--bg3);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.rcard.sel .ricon{background:rgba(76,175,80,0.18);}
+.rinfo{flex:1;min-width:0;}
+.rtitle{font-size:13.5px;font-weight:500;}
+.rdesc{font-size:11px;color:var(--text2);margin-top:1px;}
+.rarrow{color:var(--text3);font-size:17px;flex-shrink:0;}
+.rcard.sel .rarrow{color:var(--accent);}
+
+/* Stage divider */
+.sdiv{display:flex;align-items:center;gap:8px;margin:10px 0 6px;}
+.sdiv-l{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap;}
+.sdiv-line{flex:1;height:1px;background:var(--border);}
+
+/* Package list */
+.plist{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;}
+.pitem{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;display:flex;align-items:center;gap:10px;}
+.ptag{font-family:var(--mono);font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pwt{font-family:var(--mono);font-size:13px;font-weight:500;white-space:nowrap;}
+.prm{color:var(--text3);cursor:pointer;font-size:15px;padding:4px;flex-shrink:0;}
+.prm:active{color:var(--red);}
+
+/* Parent batch picker */
+.pbatch{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:6px;transition:all 0.15s;}
+.pbatch.sel{border-color:var(--accent);background:var(--adim);}
+.pcheck{width:20px;height:20px;border:1.5px solid var(--border2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all 0.15s;}
+.pbatch.sel .pcheck{background:var(--accent);border-color:var(--accent);color:#0d1410;}
+.pbid{font-family:var(--mono);font-size:12px;font-weight:500;}
+.pbdet{font-size:11px;color:var(--text2);margin-top:1px;}
+
+/* Summary table */
+.srow{display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:8px;}
+.srow:last-child{border-bottom:none;}
+.skey{font-family:var(--mono);font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;}
+.sval{font-family:var(--mono);font-size:12px;text-align:right;word-break:break-all;max-width:65%;}
+
+/* Misc */
+.div{height:1px;background:var(--border);margin:12px 0;}
+.addbtn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:transparent;border:1px dashed var(--border2);border-radius:var(--r);color:var(--text2);font-size:13px;cursor:pointer;margin-top:6px;}
+.addbtn:active{background:var(--adim);border-color:var(--accent);color:var(--accent);}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;gap:7px;}
+.eicon{font-size:32px;opacity:0.35;}
+.etitle{font-size:14px;font-weight:500;color:var(--text2);}
+.esub{font-size:12px;color:var(--text3);}
+.total-strip{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+
+/* Toast */
+#toast{position:fixed;bottom:calc(var(--nav)+10px);left:50%;transform:translateX(-50%) translateY(16px);background:var(--bg4);border:1px solid var(--border2);color:var(--text);font-size:12.5px;padding:9px 18px;border-radius:100px;white-space:nowrap;opacity:0;transition:all 0.22s;pointer-events:none;z-index:999;font-family:var(--mono);letter-spacing:0.04em;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Confirm modal */
+#confirm-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:800;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+#confirm-modal.vis{display:flex;}
+.confirm-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rl) var(--rl) var(--r) var(--r);padding:20px;width:100%;max-width:400px;}
+#confirm-msg{font-size:15px;margin-bottom:16px;text-align:center;line-height:1.5;}
+.confirm-btns{display:flex;gap:10px;}
+.confirm-btns .btn{flex:1;padding:12px;}
+
+/* Scanner overlay */
+#scan-ov{position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:600;display:none;flex-direction:column;align-items:center;}
+#scan-ov.act{display:flex;}
+#scan-hdr{width:100%;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+#scan-label{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:0.08em;}
+#scan-x{width:30px;height:30px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+#scan-body{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:16px;}
+#reader{width:100%;max-width:340px;border-radius:var(--r);overflow:hidden;}
+#scan-hint{font-family:var(--mono);font-size:10px;color:var(--text2);text-align:center;letter-spacing:0.08em;}
+
+/* Thresh cards */
+
+/* View-all inline button */
+.view-all-btn{font-family:var(--mono);font-size:9px;color:var(--accent);background:none;border:none;cursor:pointer;letter-spacing:0.06em;white-space:nowrap;padding:0;}
+
+/* Active batch card */
+.acard{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:12px;margin-bottom:8px;}
+.acard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.acard-id{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);}
+.acard-tag{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.acard-wts{display:flex;gap:12px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);margin-bottom:8px;}
+.awt-item{flex:1;text-align:center;}
+.awt-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;}
+.awt-val{font-family:var(--mono);font-size:16px;font-weight:500;margin-top:2px;}
+.awt-val.yield{font-size:13px;}
+.awt-sep{color:var(--text3);font-size:18px;align-self:center;}
+.acard-actions{display:flex;gap:8px;}
+.acard-actions .btn{flex:1;padding:10px 8px;font-size:12.5px;}
+.loss-pill{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:100px;background:rgba(255,183,77,0.12);color:var(--amber);border:1px solid rgba(255,183,77,0.25);}
+
+/* Complete notification overlay */
+#complete-notice{position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:800;display:none;align-items:center;justify-content:center;padding:24px;}
+#complete-notice.vis{display:flex;}
+.cn-box{background:var(--bg3);border:1px solid var(--accent);border-radius:var(--rl);padding:24px;max-width:360px;width:100%;text-align:center;}
+.cn-icon{font-size:36px;margin-bottom:12px;}
+.cn-title{font-size:17px;font-weight:500;margin-bottom:8px;}
+.cn-msg{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:8px;}
+.cn-bid{font-family:var(--mono);font-size:13px;color:var(--accent);padding:8px 12px;background:var(--adim);border-radius:var(--r);margin-bottom:16px;word-break:break-all;}
+.cn-tag{font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:16px;}
+
+/* Edit form section */
+.edit-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:10px;}
+.edit-section-title{font-family:var(--mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+.loss-track{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.lt-label{font-family:var(--mono);font-size:10px;color:var(--text2);}
+.lt-val{font-family:var(--mono);font-size:14px;font-weight:500;}
+
+/* Weight adjustment modal */
+#wadj-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+#wadj-modal.vis{display:flex;}
+.wadj-type-active{background:var(--adim)!important;border-color:var(--accent)!important;color:var(--accent)!important;}
+
+/* Weight history */
+.whist-item{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px;}
+.whist-item:last-child{border-bottom:none;}
+.whist-delta{font-family:var(--mono);font-size:13px;font-weight:500;flex-shrink:0;min-width:60px;}
+.whist-add{color:var(--accent);}
+.whist-sub{color:var(--amber);}
+.whist-info{flex:1;min-width:0;}
+.whist-reason{font-size:13px;color:var(--text);}
+.whist-meta{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;}
+
+/* Inventory card */
+.inv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s;}
+.inv-card:active{border-color:var(--border2);}
+.inv-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.inv-id{font-family:var(--mono);font-size:13px;font-weight:500;}
+.inv-tag{font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;}
+.inv-wts{display:flex;gap:0;background:var(--bg3);border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:8px;}
+.inv-wt{flex:1;padding:8px 10px;text-align:center;border-right:1px solid var(--border);}
+.inv-wt:last-child{border-right:none;}
+.inv-wt-label{font-family:var(--mono);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.inv-wt-val{font-family:var(--mono);font-size:16px;font-weight:500;}
+.inv-bar{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;}
+.inv-bar-fill{height:100%;border-radius:2px;transition:width 0.4s;background:var(--accent);}
+
+/* Search overlay */
+#search-ov{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
+#search-ov.act{display:flex;}
+#search-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg2);}
+#search-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:14px;padding:9px 12px;outline:none;}
+#search-input:focus{border-color:var(--accent);}
+#search-input::placeholder{color:var(--text3);font-family:var(--sans);}
+#search-results{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;}
+.search-empty{text-align:center;padding:40px 20px;color:var(--text3);font-family:var(--mono);font-size:12px;letter-spacing:0.06em;}
+.search-section-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin:10px 0 6px;}
+
+/* Search icon btn */
+.hdr-icon{width:32px;height:32px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.hdr-icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px;}
+
+/* ── Pipeline bar ── */
+.pipeline-bar{display:flex;align-items:center;margin-bottom:12px;overflow-x:auto;padding:2px 0;}
+.pipe-step{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+.pipe-dot{width:10px;height:10px;border-radius:50%;background:var(--bg4);border:1.5px solid var(--border2);transition:all 0.2s;}
+.pipe-step.done .pipe-dot{background:#2e7d32;border-color:#2e7d32;}
+.pipe-step.act .pipe-dot{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,175,80,0.22);}
+.pipe-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.04em;white-space:nowrap;}
+.pipe-step.done .pipe-label{color:#4caf50;}
+.pipe-step.act .pipe-label{color:var(--accent);}
+.pipe-line{flex:1;height:1.5px;background:var(--border);min-width:12px;}
+.pipe-done-line{background:#2e7d32;}
+
+/* ── Status badges ── */
+.bstatus-draft{background:rgba(255,255,255,0.04);color:var(--text3);border:1px solid var(--border);}
+.bstatus-tagged{background:rgba(100,181,246,0.12);color:#64b5f6;border:1px solid rgba(100,181,246,0.28);}
+.bstatus-purging{background:rgba(255,183,77,0.13);color:#ffb74d;border:1px solid rgba(255,183,77,0.28);}
+.bstatus-partial{background:rgba(255,152,0,0.14);color:#ffa726;border:1px solid rgba(255,152,0,0.32);}
+.bstatus-complete{background:rgba(76,175,80,0.14);color:#81c784;border:1px solid rgba(76,175,80,0.28);}
+
+/* ── Extraction screen ── */
+.ext-active-card{background:var(--bg2);border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:var(--rl);padding:14px 16px;margin-bottom:12px;}
+.ext-idle-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:18px 16px;margin-bottom:12px;}
+.ext-run-status-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.ext-status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+.ext-status-label{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.07em;text-transform:uppercase;flex:1;}
+.ext-run-timer{font-family:var(--mono);font-size:24px;font-weight:500;color:var(--text);letter-spacing:0.03em;font-variant-numeric:tabular-nums;}
+.ext-run-strain{font-size:17px;font-weight:500;color:var(--text);margin-bottom:4px;}
+.ext-run-tag{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.ext-btn-row{display:flex;gap:8px;margin-top:14px;}
+.ext-btn-row .btn{flex:1;padding:12px 8px;font-size:14px;}
+/* ── Tag assignment pending cards ── */
+.tap-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color 0.15s,background 0.15s;}
+.tap-card:active{background:var(--bg3);}
+.tap-card.tap-ready{border-left:3px solid #ef5350;}
+.tap-card.tap-offgas{border-left:3px solid var(--amber);}
+.tap-icon{width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
+.tap-body{flex:1;min-width:0;}
+.tap-strain{font-size:14px;font-weight:500;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tap-meta{font-family:var(--mono);font-size:10px;color:var(--text3);}
+.tap-pill{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:4px;flex-shrink:0;}
+.tap-pill-ready{background:rgba(239,83,80,0.12);color:#ef5350;border:1px solid rgba(239,83,80,0.28);}
+.tap-pill-offgas{background:rgba(255,183,77,0.11);color:var(--amber);border:1px solid rgba(255,183,77,0.22);}
+.ext-history-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;}
+.ext-hist-strain{font-size:14px;font-weight:500;color:var(--text);}
+.ext-hist-meta{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;}
+.ext-hist-runs{font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:8px;line-height:1.6;}
+.ext-hist-divider{border:none;border-top:1px solid var(--border);margin:10px 0;}
+.ext-offgas-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.ext-offgas-badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;background:rgba(255,183,77,0.11);color:var(--amber);border:1px solid rgba(255,183,77,0.22);}
+.ext-ready-badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;background:rgba(239,83,80,0.12);color:#ef5350;border:1px solid rgba(239,83,80,0.28);}
+.ext-output-row{display:flex;align-items:center;gap:8px;}
+.ext-output-badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;background:rgba(76,175,80,0.12);color:var(--accent);border:1px solid rgba(76,175,80,0.24);}
+.ext-output-meta{font-family:var(--mono);font-size:11px;color:var(--text2);}
+.ext-start-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+.ext-start-modal.vis{display:flex;}
+/* ── Notification system ── */
+.notif-badge-wrap{position:relative;}
+.notif-count{position:absolute;top:-5px;right:-5px;background:#ef5350;color:#fff;font-family:var(--mono);font-size:9px;font-weight:500;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
+.notif-panel{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;padding:20px;}
+.notif-panel.vis{display:flex;}
+.notif-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,0.65);}
+.notif-panel-sheet{position:relative;width:100%;max-width:420px;max-height:78vh;background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden;}
+.notif-panel-hdr{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;}
+.notif-panel-title{font-size:14px;font-weight:500;}
+.notif-list{overflow-y:auto;flex:1;padding:8px 8px 16px;}
+.notif-item{padding:12px;border-radius:var(--r);margin-bottom:6px;border:1px solid var(--border);}
+.notif-item.unread{border-color:rgba(255,183,77,0.28);background:rgba(255,183,77,0.05);}
+.notif-item-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px;}
+.notif-item-sub{font-family:var(--mono);font-size:10px;color:var(--text3);}
+.notif-item-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.notif-empty{padding:36px 16px;text-align:center;color:var(--text3);font-size:13px;}
+/* Output tag assignment modal */
+.output-tag-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:710;display:none;align-items:center;justify-content:center;padding:20px;}
+.output-tag-modal.vis{display:flex;}
+
+/* ── Status correction sheet ── */
+.status-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+.status-sheet.vis{display:flex;}
+.stage-chip{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:var(--r);border:1px solid var(--border2);cursor:pointer;transition:background 0.12s,border-color 0.12s;margin-bottom:8px;}
+.stage-chip:hover{background:var(--bg3);}
+.stage-chip.cur{border-color:var(--accent);background:var(--adim);}
+.stage-chip-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── Auth loading overlay ── -->
+<div id="auth-loading">
+  <div class="auth-loading-logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
+</div>
+
+
+  <header id="hdr">
+    <button id="hdr-ham" onclick="openSideNav()" aria-label="Menu">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <button id="hdr-back" onclick="handleBack()">←</button>
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
+    <span id="hdr-title">HC Extract</span>
+    <button class="hdr-icon" onclick="openSearch()" title="Search batches">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+    <div class="notif-badge-wrap">
+      <button class="hdr-icon" id="notif-bell-btn" onclick="openNotifPanel()" title="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      </button>
+      <span class="notif-count" id="notif-badge" hidden></span>
+    </div>
+  </header>
+
+  <div id="screens">
+    <div id="screen-dashboard" class="screen active">
+      <div class="dash-strip" style="margin-top:0;"><div class="ds-label">Biomass · This Week</div><div class="ds-line"></div></div>
+      <div id="stats-biomass-week" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Downstream · This Week</div><div class="ds-line"></div></div>
+      <div id="stats-downstream-week" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Biomass · Today</div><div class="ds-line"></div></div>
+      <div id="stats-biomass" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Downstream · Today</div><div class="ds-line"></div></div>
+      <div id="stats-downstream" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Tag Assignment Pending</div><div class="ds-line"></div></div>
+      <div id="dash-tag-pending"></div>
+      <div class="dash-strip"><div class="ds-label">Active Batches</div><div class="ds-line"></div><button class="view-all-btn" onclick="goTo('active-log')">View All →</button></div>
+      <div id="dash-active"></div>
+      <div class="dash-strip"><div class="ds-label">Recently Completed</div><div class="ds-line"></div></div>
+      <div id="dash-recent"></div>
+    </div>
+
+    <div id="screen-active-log" class="screen">
+      <div id="active-log-content"></div>
+    </div>
+
+    <div id="screen-edit-batch" class="screen">
+      <div id="edit-content"></div>
+    </div>
+
+    <div id="screen-new-batch" class="screen">
+      <div class="steps" id="step-dots"></div>
+      <div id="wiz-content"></div>
+      <div id="wiz-actions"></div>
+    </div>
+
+    <div id="screen-history" class="screen">
+      <div class="fg" style="margin-bottom:12px;">
+        <select class="fi" id="hist-filter" onchange="renderHistory()" style="font-size:13px;">
+          <option value="">All Products</option>
+          <option value="crude">Crude Oil</option>
+          <option value="live-badder">Live Badder</option>
+          <option value="cured-badder">Cured Badder</option>
+          <option value="diamonds">Diamonds / THCa</option>
+          <option value="liquid-diamonds">Liquid Diamonds</option>
+          <option value="ld-vape">Liquid Diamond Vape</option>
+          <option value="lr-vape">Live Resin Vape</option>
+          <option value="cr-vape">Cured Resin Vape</option>
+        </select>
+      </div>
+      <div id="hist-list"></div>
+    </div>
+
+    <div id="screen-batch-detail" class="screen">
+      <div id="detail-content"></div>
+    </div>
+
+    <div id="screen-extraction-log" class="screen">
+      <div id="ext-log-content">
+        <div class="empty"><div class="eicon">⏱</div><div class="etitle">Loading…</div></div>
+      </div>
+    </div>
+
+    <div id="screen-inventory" class="screen">
+      <div id="inv-screen-content"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Side nav backdrop ── -->
+<div id="nav-backdrop" onclick="closeSideNav()"></div>
+
+<!-- ── Side nav drawer ── -->
+<div id="sidenav">
+  <div class="snav-hd">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg></div>
+    <span class="snav-hd-title">HC Extract</span>
+  </div>
+  <div class="snav-items">
+    <div class="snav-item act" id="ntab-dashboard" onclick="goTo('dashboard');closeSideNav()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Dashboard
+    </div>
+    <div class="snav-item" id="ntab-extraction-log" onclick="goTo('extraction-log');closeSideNav()">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
+      Extraction
+    </div>
+    <div class="snav-item" id="ntab-history" onclick="goTo('history');closeSideNav()">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 15.5"/></svg>
+      History
+    </div>
+    <div class="snav-item" id="ntab-inventory" onclick="goTo('inventory');closeSideNav()">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+      Inventory
+    </div>
+    <div class="snav-divider"></div>
+  </div>
+  <div class="snav-footer">
+    <div id="snav-email">—</div>
+    <div class="snav-signout" id="user-menu-manager" hidden onclick="window.location.href='../manager/'" style="color:var(--accent);border-color:var(--border2);">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Manager View
+    </div>
+    <div class="snav-signout" onclick="doSignOut()">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign Out
+    </div>
+  </div>
+</div>
+
+<!-- ── Floating action button ── -->
+<div id="fab-float" onclick="startNewBatch()">
+  <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</div>
+
+<!-- Complete notification -->
+<div id="complete-notice">
+  <div class="cn-box">
+    <div class="cn-icon">📋</div>
+    <div class="cn-title">Confirm Before Closing in METRC</div>
+    <div class="cn-bid" id="cn-bid"></div>
+    <div class="cn-tag" id="cn-tag"></div>
+    <div class="cn-msg" style="text-align:left;">
+      Before finalizing this production batch in METRC, verify the following:
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px;">
+        <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--accent);flex-shrink:0;font-weight:600;">✓</span><span>All source package tags and input weights are recorded correctly</span></div>
+        <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--accent);flex-shrink:0;font-weight:600;">✓</span><span>Output tag is assigned and matches the physical package label</span></div>
+        <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--accent);flex-shrink:0;font-weight:600;">✓</span><span>Final output weight reflects current package mass after purge</span></div>
+        <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--accent);flex-shrink:0;font-weight:600;">✓</span><span>Product type, strain, and batch ID match what is entered in METRC</span></div>
+      </div>
+    </div>
+    <button class="btn bp" onclick="closeCN()" style="margin-top:4px;">Confirmed — Close</button>
+  </div>
+</div>
+
+<!-- Weight adjustment modal -->
+<div id="wadj-modal">
+  <div class="confirm-box" style="max-width:380px;">
+    <p style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">Adjust Weight</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button id="wadj-add-btn" class="btn bg2" style="flex:1;padding:10px;" onclick="setWadjType('add')">+ Add Mass</button>
+      <button id="wadj-sub-btn" class="btn bg2" style="flex:1;padding:10px;" onclick="setWadjType('subtract')">− Subtract Mass</button>
+    </div>
+    <div class="fg">
+      <label class="flabel">Amount (g) <span class="req">*</span></label>
+      <input id="wadj-amount" class="fi" type="number" step="0.01" min="0.01" placeholder="0.00" inputmode="decimal" oninput="updateWadjPreview()">
+    </div>
+    <div class="fg">
+      <label class="flabel">Reason <span class="req">*</span></label>
+      <input id="wadj-reason" class="fi" type="text" placeholder="e.g. Post-purge weigh-in, transfer loss, moisture…" autocomplete="off" oninput="updateWadjPreview()">
+    </div>
+    <div id="wadj-preview" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;display:none;">
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;margin-bottom:4px;">
+        <span style="color:var(--text2);">Before</span><span id="wadj-before">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;margin-bottom:4px;">
+        <span style="color:var(--text2);">Change</span><span id="wadj-delta" style="font-weight:500;">—</span>
+      </div>
+      <div style="height:1px;background:var(--border);margin:6px 0;"></div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:14px;font-weight:500;">
+        <span>After</span><span id="wadj-after" style="color:var(--accent);">—</span>
+      </div>
+    </div>
+    <div class="confirm-btns">
+      <button class="btn bg2" onclick="closeWadj()">Cancel</button>
+      <button class="btn bp" id="wadj-confirm-btn" onclick="confirmWadj()" disabled>Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div id="confirm-modal">
+  <div class="confirm-box">
+    <p id="confirm-msg"></p>
+    <div class="confirm-btns">
+      <button class="btn bg2" onclick="cancelConfirm()">Cancel</button>
+      <button class="btn bdr" id="confirm-ok" onclick="doConfirm()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Extraction start modal -->
+<div class="ext-start-modal" id="ext-start-modal">
+  <div class="confirm-box" style="max-width:400px;">
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:14px;">Start Extraction Run</div>
+
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Source Tag</label>
+      <div style="display:flex;gap:8px;">
+        <input id="ext-src-tag" class="fi" style="flex:1;font-family:var(--mono);font-size:12px;letter-spacing:0.04em;" type="text" placeholder="Scan or enter METRC tag" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button onclick="scanExtSourceTag()" style="flex-shrink:0;width:42px;height:42px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="2" y="3" width="4" height="18" rx="1"/><rect x="8" y="3" width="2" height="18" rx="0.5"/><rect x="12" y="3" width="3" height="18" rx="0.5"/><rect x="17" y="3" width="5" height="18" rx="1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Strain</label>
+      <input id="ext-strain" class="fi" type="text" placeholder="e.g. Blue Dream" autocomplete="off" autocapitalize="words">
+    </div>
+
+    <div class="fg" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <label class="flabel" style="margin:0;">Material Type</label>
+        <button id="ext-mat-manage-btn" onclick="openMatManager()" hidden style="background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--accent);cursor:pointer;padding:2px 0;letter-spacing:0.06em;">⚙ MANAGE</button>
+      </div>
+      <select id="ext-material" class="fi"></select>
+    </div>
+
+    <div class="fg" style="margin-bottom:16px;">
+      <label class="flabel">Run #</label>
+      <div style="display:flex;gap:8px;">
+        <button id="ext-run1-btn" class="btn bp" style="flex:1;" onclick="setExtRunNum(1)">Run 1</button>
+        <button id="ext-run2-btn" class="btn bg2" style="flex:1;" onclick="setExtRunNum(2)">Run 2</button>
+      </div>
+    </div>
+
+    <div class="fg" style="margin-bottom:16px;">
+      <label class="flabel">Notes (optional)</label>
+      <input id="ext-notes" class="fi" type="text" placeholder="Optional notes" autocomplete="off">
+    </div>
+
+    <div class="confirm-btns">
+      <button class="btn bg2" onclick="closeExtStartModal()">Cancel</button>
+      <button class="btn bp" id="ext-start-btn" onclick="startExtRun()">▶ Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- Material type manager -->
+<div class="output-tag-modal" id="mat-manager-modal" style="z-index:720;">
+  <div class="confirm-box" style="max-width:380px;width:100%;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;">Material Types</div>
+    <div id="mat-manager-list" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input id="mat-mgr-new" class="fi" type="text" placeholder="New type name" autocomplete="off" autocapitalize="words" style="flex:1;" onkeydown="if(event.key==='Enter')saveMgrNewType()">
+      <button onclick="saveMgrNewType()" class="btn bp" style="width:auto;padding:0 14px;font-size:12px;">Add</button>
+    </div>
+    <button class="btn bg2" onclick="closeMatManager()">Done</button>
+  </div>
+</div>
+
+<!-- Status correction sheet -->
+<div class="status-sheet" id="status-sheet">
+  <div class="confirm-box" style="max-width:400px;width:100%;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;">Set Batch Status</div>
+    <div id="status-sheet-stages"></div>
+    <div class="confirm-btns" style="margin-top:4px;">
+      <button class="btn bg2" onclick="closeStatusSheet()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notification panel -->
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-panel-bg" onclick="closeNotifPanel()"></div>
+  <div class="notif-panel-sheet">
+    <div class="notif-panel-hdr">
+      <span class="notif-panel-title">Notifications</span>
+      <button class="btn bg2" style="padding:5px 12px;font-size:12px;" onclick="closeNotifPanel()">Done</button>
+    </div>
+    <div class="notif-list" id="notif-list"></div>
+  </div>
+</div>
+
+<!-- Output tag assignment -->
+<div class="output-tag-modal" id="output-tag-modal">
+  <div class="confirm-box" style="max-width:400px;width:100%;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">Assign Output Tag</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:12px;" id="otag-src"></div>
+    <div id="otag-offgas-banner" hidden style="background:rgba(255,183,77,0.10);border:1px solid rgba(255,183,77,0.28);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-family:var(--mono);font-size:12px;color:#ffb74d;"></div>
+    <div id="otag-override-row" hidden style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:2px 0;">
+      <input type="checkbox" id="otag-override" onchange="toggleOffGasOverride(this.checked)" style="width:15px;height:15px;accent-color:var(--amber);cursor:pointer;">
+      <label for="otag-override" style="font-family:var(--mono);font-size:11px;color:var(--text2);cursor:pointer;">Override off-gas timer</label>
+    </div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Output METRC Tag</label>
+      <div style="display:flex;gap:8px;">
+        <input id="otag-tag" class="fi" style="flex:1;font-family:var(--mono);font-size:12px;letter-spacing:0.04em;" type="text" placeholder="Scan or enter output tag" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button onclick="scanOtagOutputTag()" style="flex-shrink:0;width:42px;height:42px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="2" y="3" width="4" height="18" rx="1"/><rect x="8" y="3" width="2" height="18" rx="0.5"/><rect x="12" y="3" width="3" height="18" rx="0.5"/><rect x="17" y="3" width="5" height="18" rx="1"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Output Weight (g)</label>
+      <input id="otag-weight" class="fi" type="number" placeholder="0.0" step="0.1" min="0">
+    </div>
+    <div class="fg" style="margin-bottom:16px;">
+      <label class="flabel">Crude Batch ID</label>
+      <input id="otag-batchid" class="fi mono" type="text" placeholder="APFR-CRUDE-101326" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:13px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      <div id="otag-bid-hint" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;">Auto-generated · edit if needed</div>
+    </div>
+    <div class="confirm-btns">
+      <button class="btn bg2" onclick="closeOutputTagModal()">Cancel</button>
+      <button class="btn bp" id="otag-submit-btn" onclick="submitOutputTag()">Save &amp; Notify Manager</button>
+    </div>
+  </div>
+</div>
+
+<!-- Search overlay -->
+<div id="search-ov">
+  <div id="search-bar">
+    <div class="scanbtn" onclick="openSearchScanner()" style="flex-shrink:0;">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="5" height="18" rx="1"/><rect x="9" y="3" width="2" height="18" rx="0.5"/><rect x="13" y="3" width="3" height="18" rx="0.5"/><rect x="18" y="3" width="4" height="18" rx="1"/></svg>
+    </div>
+    <input id="search-input" type="text" placeholder="Batch ID, last 6 digits of tag, or full tag…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="runSearch(this.value)">
+    <button class="hdr-icon" onclick="closeSearch()" style="border:none;">✕</button>
+  </div>
+  <div id="search-results">
+    <div class="search-empty">Enter batch ID or tag number<br>or scan a barcode</div>
+  </div>
+</div>
+
+<!-- Scanner -->
+<div id="scan-ov">
+  <div id="scan-hdr">
+    <span id="scan-label">SCAN METRC TAG · CODE 128</span>
+    <div id="scan-x" onclick="closeScanner()">✕</div>
+  </div>
+  <div id="scan-body">
+    <video id="scan-video" style="width:100%;max-width:360px;border-radius:8px;background:#000;" playsinline autoplay muted></video>
+    <p id="scan-hint">ALIGN BARCODE WITHIN FRAME</p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+</body>
+
+<script>
+/* ============================================================
+   !! CONFIGURE BEFORE DEPLOYING !!
+============================================================ */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAyjFEDxjsl26ryUmFF41e0VLs5Vhpx2EU",
+  authDomain:        "extractiontracker.firebaseapp.com",
+  projectId:         "extractiontracker",
+  storageBucket:     "extractiontracker.firebasestorage.app",
+  messagingSenderId: "735518638661",
+  appId:             "1:735518638661:web:cf646ede8943d4baffd92c"
+};
+
+/* ============================================================
+   FIREBASE INIT
+============================================================ */
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
+
+const ROUTES = {
+  'crude':           {label:'Crude Oil',           code:'CRUDE', stage:1, icon:'🛢',  desc:'Trim  ·  inferred from product'},
+  'live-badder':     {label:'Live Badder',          code:'LBDR',  stage:1, icon:'🍯',  desc:'Whole Plant Fresh Frozen  ·  inferred'},
+  'cured-badder':    {label:'Cured Badder',         code:'CBDR',  stage:1, icon:'🍯',  desc:'Cured Flower  ·  inferred from product'},
+  'diamonds':        {label:'Diamonds / THCa',      code:'DMND',  stage:2, icon:'💎',  desc:'Crude → Diamonds  ·  HTE stays on crude tag'},
+  'lr-vape':         {label:'Live Resin Vape',      code:'LRV',   stage:2, icon:'🌿',  desc:'Live Badder → Live Resin Vape Cartridges'},
+  'cr-vape':         {label:'Cured Resin Vape',     code:'CRV',   stage:2, icon:'🌾',  desc:'Crude / Cured Badder → Cured Resin Vape Cartridges'},
+  'liquid-diamonds': {label:'Liquid Diamonds',      code:'LQDM',  stage:3, icon:'💧',  desc:'Diamonds → Liquid Diamonds'},
+  'ld-vape':         {label:'Liquid Diamond Vape',  code:'LDV',   stage:3, icon:'💨',  desc:'Liquid Diamonds → Vape Cartridges  ·  multiple flavors'},
+};
+
+const VAPE_ROUTES = ['ld-vape','lr-vape','cr-vape'];
+
+const DEFAULT_THRESH = {
+  'crude':           {hi:10,  mid:6},
+  'live-badder':     {hi:14,  mid:9},
+  'cured-badder':    {hi:12,  mid:8},
+  'diamonds':        {hi:55,  mid:35},
+  'liquid-diamonds': {hi:82,  mid:65},
+  'lr-vape':         {hi:80,  mid:60},
+  'cr-vape':         {hi:80,  mid:60},
+  'ld-vape':         {hi:80,  mid:60},
+};
+
+const VALID_PARENTS = {
+  'diamonds':        ['crude'],
+  'lr-vape':         ['live-badder'],
+  'cr-vape':         ['crude','cured-badder'],
+  'liquid-diamonds': ['diamonds'],
+  'ld-vape':         ['liquid-diamonds'],
+};
+
+const DOWNSTREAM_MAP = {
+  'crude':           'diamonds',
+  'live-badder':     'lr-vape',
+  'cured-badder':    'cr-vape',
+  'diamonds':        'liquid-diamonds',
+  'liquid-diamonds': 'ld-vape',
+};
+
+/* ── Status pipeline ── */
+// Routes that skip partial allocation (jump purging/crystal-mat → complete)
+const SKIP_PARTIAL = new Set(['diamonds','lr-vape','cr-vape','liquid-diamonds','ld-vape']);
+
+const STAGE_LABELS = {
+  draft:    'Draft',
+  tagged:   'Tagged',
+  purging:  'Purging',
+  partial:  'Partial',
+  complete: 'Complete',
+};
+
+// Routes that have extraction time tracking (crude oil)
+const EXTRACTION_TIMED_ROUTES = new Set(['crude']);
+
+const FACILITY_ID = 'TG-HC';
+
+const BIOMASS = [
+  {v:'',           l:'Select biomass type…'},
+  {v:'trim',       l:'Trim'},
+  {v:'cured-flower',l:'Cured Flower'},
+  {v:'fresh-frozen',l:'Whole Plant Fresh Frozen'},
+];
+
+/* Only live-badder is fully inferred — crude and cured-badder require selection */
+const BIOMASS_INFER = {
+  'live-badder': {v:'fresh-frozen', l:'Whole Plant Fresh Frozen'},
+};
+
+/* Per-route biomass options for routes that need selection */
+const BIOMASS_OPTIONS = {
+  'crude': [
+    {v:'fresh-frozen-flower', l:'Fresh Frozen Flower'},
+    {v:'cured-flower',        l:'Cured Flower'},
+    {v:'trim',                l:'Trim'},
+  ],
+  'cured-badder': [
+    {v:'cured-flower', l:'Cured Flower'},
+    {v:'trim',         l:'Trim'},
+  ],
+};
+
+/* ============================================================
+   STATE
+============================================================ */
+let batches       = [];           // populated by Firestore onSnapshot
+let extRuns       = [];           // extraction runs from Firestore
+let notifications = [];           // in-app notifications from Firestore
+let settings      = {};           // loaded in bootApp from localStorage
+let _notifUnsubscribe = null;
+let curScreen = 'dashboard';
+let wStep = 1;
+let draft = {};
+let scanCB = null;
+let scanStream  = null;   // MediaStream from getUserMedia
+let scanActive  = false;  // controls the rAF decode loop
+let confirmCB = null;
+let _activeRunId = null;  // currently running extraction timer
+let _timerInterval = null;
+
+function resetDraft() {
+  draft = {
+    route:null, strain:'', strainCode:'', biomassType:'',
+    date:todayStr(), tech:localStorage.getItem('hc_tech')||'',
+    srcPkgs:[], totalIn:0,
+    outTag:'', outWeight:0, hteWeight:0,
+    hteNewTag:false, hteTag:'', hteBatchId:'',
+    flavor:'', extraOuts:[],
+    parentIds:[], batchId:'', notes:''
+  };
+}
+
+/* ============================================================
+   HELPERS
+============================================================ */
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function dateCode(s){const[y,m,d]=s.split('-');return m+d+y.slice(2);}
+function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');return`${m}/${d}/${y}`;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function bLabel(v){
+  const all=[
+    ...BIOMASS,
+    {v:'fresh-frozen-flower',l:'Fresh Frozen Flower'},
+  ];
+  return all.find(b=>b.v===v)?.l||v;
+}
+
+function getThresh(route){
+  const s=settings.thresholds?.[route];
+  const d=DEFAULT_THRESH[route]||{hi:12,mid:8};
+  return s||d;
+}
+
+function strCode(name){
+  if(!name)return'';
+  const u=name.trim().toUpperCase();
+  const nm=u.match(/^(.*?)\s*#?\s*(\d+)$/);
+  if(nm){
+    const letters=nm[1].replace(/[^A-Z]/g,'');
+    return letters.substring(0,4)+nm[2];
+  }
+  const words=u.replace(/[^A-Z\s]/g,'').trim().split(/\s+/).filter(Boolean);
+  if(!words.length)return'';
+  if(words.length===1)return words[0].substring(0,4);
+  if(words.length===2)return words[0].substring(0,2)+words[1].substring(0,2);
+  if(words.length===3)return words[0][0]+words[1][0]+words[2].substring(0,2);
+  return words[0][0]+words[1][0]+words[2][0]+words[3][0];
+}
+
+/* Returns the active product code: custom (from settings) > route default */
+function getRouteCode(route){
+  return(settings.codes?.[route])||ROUTES[route]?.code||route.toUpperCase();
+}
+
+function makeBatchId(sc,route,date){
+  if(!route||!date)return'';
+  const dc=dateCode(date);
+  if(route==='diamonds')return`THCa-POW-${dc}`;
+  const code=getRouteCode(route);
+  // Stage 3 routes don't require a strain prefix
+  if(!sc||ROUTES[route]?.stage===3&&!sc)return`${code}-${dc}`;
+  return`${sc}-${code}-${dc}`;
+}
+
+function calcY(out,input){return(!input||input===0)?0:(out/input)*100;}
+
+function yColor(pct,route){
+  const t=getThresh(route);
+  if(pct>=t.hi)return'var(--accent)';
+  if(pct>=t.mid)return'var(--amber)';
+  return'var(--red)';
+}
+function yBadge(pct,route){
+  const t=getThresh(route);
+  if(pct>=t.hi)return'bg';
+  if(pct>=t.mid)return'ba';
+  return'br';
+}
+
+function totalVapeWeight(b){
+  return(b.outWeight||0)+(b.extraOuts||[]).reduce((s,o)=>s+(o.weight||0),0);
+}
+
+function toast(msg,ms=2300){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+/* ============================================================
+   STATUS PIPELINE HELPERS
+============================================================ */
+// Normalise legacy 'active' status → 'purging'
+function getBatchStatus(b){ return (b.status==='active'||!b.status)?'purging':b.status; }
+function isComplete(b){ return getBatchStatus(b)==='complete'; }
+
+// Route-aware label: diamonds use Crystal Mat. instead of Purging
+function getStageLabel(status, route){
+  if(status==='purging'&&route==='diamonds') return 'Crystal Mat.';
+  return STAGE_LABELS[status]||status;
+}
+
+function stageBadgeCls(status){
+  switch(status){
+    case 'draft':    return 'bstatus-draft';
+    case 'tagged':   return 'bstatus-tagged';
+    case 'purging':  return 'bstatus-purging';
+    case 'partial':  return 'bstatus-partial';
+    case 'complete': return 'bstatus-complete';
+    default:         return 'bstatus-purging';
+  }
+}
+
+// Ordered stages for a given route
+// Tagged happens AFTER purging (output is tagged in METRC post-extraction,
+// then sits in storage awaiting formulation/allocation)
+function getStages(route){
+  return SKIP_PARTIAL.has(route)
+    ? ['draft','purging','tagged','complete']
+    : ['draft','purging','tagged','partial','complete'];
+}
+
+// Render a horizontal pipeline progress bar
+function renderPipeline(b){
+  const status = getBatchStatus(b);
+  const route  = b.route;
+  const stages = getStages(route);
+  const curIdx = stages.indexOf(status);
+  let html = '<div class="pipeline-bar">';
+  stages.forEach((s,i)=>{
+    if(i>0){
+      const lineClass = i<=curIdx ? 'pipe-line pipe-done-line' : 'pipe-line';
+      html += `<div class="${lineClass}"></div>`;
+    }
+    const cls = i<curIdx ? 'pipe-step done' : i===curIdx ? 'pipe-step act' : 'pipe-step';
+    html += `<div class="${cls}"><div class="pipe-dot"></div><div class="pipe-label">${getStageLabel(s,route)}</div></div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+// Advance a batch to the next stage
+async function advanceStatus(id){
+  const b = batches.find(x=>x.id===id);
+  if(!b) return;
+  const status = getBatchStatus(b);
+  const stages = getStages(b.route);
+  const curIdx = stages.indexOf(status);
+  if(curIdx<0||curIdx>=stages.length-1) return;
+  const nextStatus = stages[curIdx+1];
+
+  const prev = status;
+  b.status = nextStatus;
+  if(!b.statusHistory) b.statusHistory=[];
+  b.statusHistory.push({
+    from: prev, to: nextStatus, ts: Date.now(),
+    uid: currentUser?.uid||'', name: currentUserData?.name||currentUser?.email||''
+  });
+  if(nextStatus==='complete') b.completedAt=Date.now();
+  await saveDoc(b);
+  toast(`Status → ${getStageLabel(nextStatus,b.route)}`);
+  if(nextStatus==='complete'){
+    document.getElementById('cn-bid').textContent=b.batchId;
+    document.getElementById('cn-tag').textContent=`Tag: ${b.outTag||'—'}`;
+    _completedBatchId=b.id;
+    document.getElementById('complete-notice').classList.add('vis');
+  }
+  viewBatch(id);
+}
+
+/* ============================================================
+   FIRESTORE DATA LAYER
+============================================================ */
+function startListener(){
+  db.collection('batches')
+    .orderBy('createdAt','desc')
+    .onSnapshot(snap=>{
+      batches=snap.docs.map(d=>d.data());
+      refreshCurrentScreen();
+    }, err=>{
+      console.error('Listener error',err);
+      toast('⚠ Connection issue — data may be stale');
+    });
+}
+function refreshCurrentScreen(){
+  if(curScreen==='dashboard')renderDash();
+  else if(curScreen==='inventory')renderInventory();
+  else if(curScreen==='history')renderHistory();
+  else if(curScreen==='active-log')renderActiveLog();
+  else if(curScreen==='extraction-log')renderExtLog();
+}
+async function saveDoc(b){
+  try{await db.collection('batches').doc(b.id).set(b);}
+  catch(e){toast('⚠ Save failed — check connection');console.error(e);}
+}
+async function deleteDoc(id){
+  try{await db.collection('batches').doc(id).delete();}
+  catch(e){toast('⚠ Delete failed');console.error(e);}
+}
+function saveSettings(){
+  localStorage.setItem('hc_settings',JSON.stringify(settings));
+}
+
+/* ============================================================
+   CONFIRM MODAL
+============================================================ */
+function showConfirm(msg,cb,okLabel='Delete',okCls='bdr'){
+  document.getElementById('confirm-msg').textContent=msg;
+  const btn=document.getElementById('confirm-ok');
+  btn.textContent=okLabel;btn.className=`btn ${okCls}`;
+  document.getElementById('confirm-modal').classList.add('vis');
+  confirmCB=cb;
+}
+function doConfirm(){
+  document.getElementById('confirm-modal').classList.remove('vis');
+  if(confirmCB)confirmCB();
+  confirmCB=null;
+}
+function cancelConfirm(){
+  document.getElementById('confirm-modal').classList.remove('vis');
+  confirmCB=null;
+}
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+function goTo(screen){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+screen).classList.add('active');
+  curScreen=screen;
+  // Update sidenav active state
+  document.querySelectorAll('.snav-item').forEach(t=>t.classList.remove('act'));
+  const tabs={
+    dashboard:'ntab-dashboard',
+    history:'ntab-history',
+    'extraction-log':'ntab-extraction-log',
+    inventory:'ntab-inventory'
+  };
+  if(tabs[screen])document.getElementById(tabs[screen])?.classList.add('act');
+  const back=document.getElementById('hdr-back');
+  const ham=document.getElementById('hdr-ham');
+  const fab=document.getElementById('fab-float');
+  const title=document.getElementById('hdr-title');
+  const labels={
+    dashboard:'HC Extract',history:'Batch History',
+    'new-batch':'New Batch','batch-detail':'Batch Detail',
+    'active-log':'Active Batches','edit-batch':'Edit Batch',
+    'extraction-log':'Extraction',inventory:'Inventory'
+  };
+  title.textContent=labels[screen]||'HC Extract';
+  const hasBack=['new-batch','batch-detail','active-log','edit-batch'].includes(screen);
+  if(hasBack){
+    back.classList.add('vis');
+    if(ham)ham.style.display='none';
+    if(fab)fab.classList.add('hidden');
+  } else {
+    back.classList.remove('vis');
+    if(ham)ham.style.display='';
+    if(fab)fab.classList.remove('hidden');
+  }
+  if(screen==='dashboard')renderDash();
+  if(screen==='history')renderHistory();
+  if(screen==='new-batch')renderWiz();
+  if(screen==='active-log')renderActiveLog();
+  if(screen==='extraction-log')renderExtLog();
+  if(screen==='inventory')renderInventory();
+}
+
+function handleBack(){
+  if(curScreen==='new-batch'){
+    if(wStep>1){
+      // Backing up past or to step 3 clears packages so they don't bleed into a changed route/stage
+      if(wStep<=3){
+        draft.srcPkgs=[];
+        draft.totalIn=0;
+      }
+      wStep--;renderWiz();
+    }
+    else showConfirm('Discard this batch?',()=>goTo('dashboard'),'Discard','bs');
+  } else if(curScreen==='active-log'||curScreen==='edit-batch'||curScreen==='batch-detail'){
+    goTo('dashboard');
+  } else {
+    goTo('dashboard');
+  }
+}
+
+/* ============================================================
+   CRUDE & BADDER INVENTORY
+============================================================ */
+const INVENTORY_ROUTES=['crude','live-badder','cured-badder'];
+
+function getCrudeRemaining(b){
+  // Sum all downstream batches that pulled from this batch's output tag
+  const netConsumed=batches
+    .filter(x=>x.srcPkgs&&x.srcPkgs.some(p=>p.tag===b.outTag))
+    .reduce((sum,x)=>{
+      const p=x.srcPkgs.find(p=>p.tag===b.outTag);
+      const pulled=p?.weight||0;
+      // If this is a diamonds batch and HTE stays on crude tag, add it back
+      const hteReturned=(x.route==='diamonds'&&!x.hteNewTag)?(x.hteWeight||0):0;
+      return sum+(pulled-hteReturned);
+    },0);
+  return Math.max(0,(b.outWeight||0)-netConsumed);
+}
+
+function renderInventory(){
+  const el=document.getElementById('inv-screen-content');
+  if(!el)return;
+
+  const inv=batches
+    .filter(b=>INVENTORY_ROUTES.includes(b.route))
+    .map(b=>({...b,remaining:getCrudeRemaining(b)}))
+    .filter(b=>b.remaining>0)
+    .sort((a,c)=>c.createdAt-a.createdAt);
+
+  if(!inv.length){
+    el.innerHTML=`<p style="font-family:var(--mono);font-size:11px;color:var(--text3);padding-bottom:4px;">No crude or badder inventory — all product consumed or none created yet</p>`;
+    return;
+  }
+
+  el.innerHTML=inv.map(b=>{
+    const r=ROUTES[b.route];
+    const orig=b.outWeight||0;
+    const remaining=b.remaining;
+    const consumed=orig-remaining;
+    const pct=orig>0?(consumed/orig)*100:0;
+    // Colour shifts amber when >50% consumed, red when >85%
+    const barCol=pct>=85?'var(--red)':pct>=50?'var(--amber)':'var(--accent)';
+    return`<div class="inv-card" onclick="viewBatch('${b.id}')">
+      <div class="inv-header">
+        <div style="min-width:0;flex:1;">
+          <div class="inv-id">${b.batchId}</div>
+          ${b.outTag?`<div class="inv-tag">${b.outTag}</div>`:''}
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">${b.strain?b.strain+' · ':''}${r?.label||''} · ${fmtDate(b.date)}</div>
+        </div>
+        <span class="badge ${remaining<orig*0.2?'br':remaining<orig*0.5?'ba':'bg'}" style="white-space:nowrap;">${remaining.toFixed(1)}g left</span>
+      </div>
+      <div class="inv-wts">
+        <div class="inv-wt">
+          <div class="inv-wt-label">Original</div>
+          <div class="inv-wt-val">${orig.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div>
+        </div>
+        <div class="inv-wt">
+          <div class="inv-wt-label">Consumed</div>
+          <div class="inv-wt-val" style="color:var(--text2)">${consumed.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div>
+        </div>
+        <div class="inv-wt">
+          <div class="inv-wt-label">Remaining</div>
+          <div class="inv-wt-val" style="color:${barCol}">${remaining.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div>
+        </div>
+      </div>
+      <div class="inv-bar"><div class="inv-bar-fill" style="width:${Math.min(pct,100)}%;background:${barCol};"></div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+function getWeekDates(){
+  const now=new Date();
+  const dow=now.getDay(); // 0=Sun
+  const daysToMon=dow===0?6:dow-1;
+  const mon=new Date(now);mon.setDate(now.getDate()-daysToMon);mon.setHours(0,0,0,0);
+  const dates=[];
+  for(let d=new Date(mon);d<=now;d.setDate(d.getDate()+1))
+    dates.push(d.toISOString().split('T')[0]);
+  return dates;
+}
+
+function renderDash(){
+  const today=todayStr();
+  const weekDates=new Set(getWeekDates());
+  const todayAll=batches.filter(b=>b.date===today);
+  const weekAll=batches.filter(b=>weekDates.has(b.date));
+
+  // ── Weekly stats ──
+  const ws1=weekAll.filter(b=>ROUTES[b.route]?.stage===1);
+  const ws1In=ws1.reduce((s,b)=>s+(b.totalIn||0),0);
+  const ws1Out=ws1.reduce((s,b)=>s+(b.outWeight||0),0);
+  const wAvgY=ws1.length?(ws1.reduce((s,b)=>s+(b.yieldPct||0),0)/ws1.length):0;
+  document.getElementById('stats-biomass-week').innerHTML=`
+    <div class="scard"><div class="slabel">Runs</div><div class="sval">${ws1.length}<span class="sunit">runs</span></div></div>
+    <div class="scard"><div class="slabel">Avg Yield</div><div class="sval" style="color:${yColor(wAvgY,'crude')}">${wAvgY.toFixed(1)}<span class="sunit">%</span></div></div>
+    <div class="scard"><div class="slabel">Biomass In</div><div class="sval sm">${ws1In.toFixed(0)}<span class="sunit">g</span></div></div>
+    <div class="scard"><div class="slabel">Crude/Badder Out</div><div class="sval sm">${ws1Out.toFixed(1)}<span class="sunit">g</span></div></div>
+  `;
+  const wDiamBatch=weekAll.filter(b=>b.route==='diamonds');
+  const wDiamG=wDiamBatch.reduce((s,b)=>s+(b.outWeight||0),0);
+  const wHteG=wDiamBatch.reduce((s,b)=>s+(b.hteWeight||0),0);
+  const wLqdG=weekAll.filter(b=>b.route==='liquid-diamonds').reduce((s,b)=>s+(b.outWeight||0),0);
+  const wVapeAll=weekAll.filter(b=>VAPE_ROUTES.includes(b.route));
+  const wVapeG=wVapeAll.reduce((s,b)=>s+totalVapeWeight(b),0);
+  const wDashVal=(g)=>g>0?`${g.toFixed(1)}<span class="sunit">g</span>`:`<span style="color:var(--text3);font-size:16px;">—</span>`;
+  document.getElementById('stats-downstream-week').innerHTML=`
+    <div class="scard"><div class="slabel">💎 Diamonds</div><div class="sval sm">${wDashVal(wDiamG)}</div></div>
+    <div class="scard"><div class="slabel">🛢 HTE</div><div class="sval sm">${wDashVal(wHteG)}</div></div>
+    <div class="scard"><div class="slabel">💧 Liq Diamonds</div><div class="sval sm">${wDashVal(wLqdG)}</div></div>
+    <div class="scard"><div class="slabel">💨 Vape Out</div><div class="sval sm">${wVapeG>0?`${wVapeG.toFixed(1)}<span class="sunit">g</span><span style="font-size:11px;color:var(--text3);margin-left:4px;">(${wVapeAll.length})</span>`:'<span style="color:var(--text3);font-size:16px;">—</span>'}</div></div>
+  `;
+
+  // ── Daily stats ──
+  const s1=todayAll.filter(b=>ROUTES[b.route]?.stage===1);
+  const s1In=s1.reduce((s,b)=>s+(b.totalIn||0),0);
+  const s1Out=s1.reduce((s,b)=>s+(b.outWeight||0),0);
+  const avgY=s1.length?(s1.reduce((s,b)=>s+(b.yieldPct||0),0)/s1.length):0;
+
+  document.getElementById('stats-biomass').innerHTML=`
+    <div class="scard"><div class="slabel">Runs Today</div><div class="sval">${s1.length}<span class="sunit">runs</span></div></div>
+    <div class="scard"><div class="slabel">Avg Yield</div><div class="sval" style="color:${yColor(avgY,'crude')}">${avgY.toFixed(1)}<span class="sunit">%</span></div></div>
+    <div class="scard"><div class="slabel">Biomass In</div><div class="sval sm">${s1In.toFixed(0)}<span class="sunit">g</span></div></div>
+    <div class="scard"><div class="slabel">Crude/Badder Out</div><div class="sval sm">${s1Out.toFixed(1)}<span class="sunit">g</span></div></div>
+  `;
+
+  // Downstream
+  const diamBatch=todayAll.filter(b=>b.route==='diamonds');
+  const diamG=diamBatch.reduce((s,b)=>s+(b.outWeight||0),0);
+  const hteOnCrudeG=diamBatch.filter(b=>!b.hteNewTag).reduce((s,b)=>s+(b.hteWeight||0),0);
+  const hteNewTagG=diamBatch.filter(b=>b.hteNewTag).reduce((s,b)=>s+(b.hteWeight||0),0);
+  const hteG=hteOnCrudeG+hteNewTagG;
+  const lqdG=todayAll.filter(b=>b.route==='liquid-diamonds').reduce((s,b)=>s+(b.outWeight||0),0);
+  const vapeToday=todayAll.filter(b=>VAPE_ROUTES.includes(b.route));
+  const vapeG=vapeToday.reduce((s,b)=>s+totalVapeWeight(b),0);
+
+  const dashVal=(g,unit='g')=>g>0?`${g.toFixed(1)}<span class="sunit">${unit}</span>`:`<span style="color:var(--text3);font-size:16px;">—</span>`;
+  const hteLabel=hteNewTagG>0&&hteOnCrudeG>0
+    ?`🛢 HTE (${hteOnCrudeG.toFixed(1)}g crude + ${hteNewTagG.toFixed(1)}g new)`
+    :hteNewTagG>0?'🛢 HTE (new tag)':'🛢 HTE (crude tag)';
+
+  document.getElementById('stats-downstream').innerHTML=`
+    <div class="scard"><div class="slabel">💎 Diamonds</div><div class="sval sm">${dashVal(diamG)}</div></div>
+    <div class="scard"><div class="slabel" style="font-size:8px;">${hteLabel}</div><div class="sval sm">${dashVal(hteG)}</div></div>
+    <div class="scard"><div class="slabel">💧 Liq Diamonds</div><div class="sval sm">${dashVal(lqdG)}</div></div>
+    <div class="scard"><div class="slabel">💨 Vape Out</div><div class="sval sm">${vapeG>0?`${vapeG.toFixed(1)}<span class="sunit">g</span><span style="font-size:11px;color:var(--text3);margin-left:4px;">(${vapeToday.length})</span>`:'<span style="color:var(--text3);font-size:16px;">—</span>'}</div></div>
+  `;
+
+  // ── Tag Assignment Pending ──
+  checkAndCreateOffGasNotifs();
+  const runsByTag={};
+  extRuns.forEach(r=>{
+    if(!runsByTag[r.sourceTag]) runsByTag[r.sourceTag]=[];
+    runsByTag[r.sourceTag].push(r);
+  });
+  const offGasHours=settings.offGasHours||12;
+  const now2=Date.now();
+  const pendingTags=Object.entries(runsByTag)
+    .filter(([tag,runs])=>{
+      if(runs.some(r=>!r.endedAt)) return false; // still running
+      const last=runs.sort((a,b)=>b.endedAt-a.endedAt)[0];
+      return !last.outputTag; // needs tag
+    })
+    .map(([tag,runs])=>{
+      const last=runs.sort((a,b)=>b.endedAt-a.endedAt)[0];
+      const offGasReadyAt=(last.endedAt||0)+offGasHours*3600000;
+      const isReady=now2>=offGasReadyAt;
+      const runCount=runs.length;
+      const remainH=isReady?0:Math.ceil((offGasReadyAt-now2)/3600000);
+      const run1=runs.find(r=>(r.runNumber||1)===1);
+      const run2=runs.find(r=>r.runNumber===2);
+      const totalSec=(run1?.durationSec||0)+(run2?.durationSec||0);
+      return{tag,last,runCount,isReady,remainH,totalSec};
+    })
+    .sort((a,b)=>{
+      if(a.isReady!==b.isReady) return a.isReady?-1:1;
+      return (a.last.endedAt||0)-(b.last.endedAt||0);
+    });
+
+  const tpEl=document.getElementById('dash-tag-pending');
+  if(!pendingTags.length){
+    tpEl.innerHTML=`<p style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:4px 0 8px;">No batches awaiting tag assignment</p>`;
+  } else {
+    tpEl.innerHTML=pendingTags.map(({tag,last,runCount,isReady,remainH,totalSec})=>{
+      const tagShortStr=tag.length>12?'…'+tag.slice(-8):tag;
+      const runsLabel=runCount===1?'1 run':`${runCount} runs`;
+      const endedDate=last.endedAt?new Date(last.endedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+      const durStr=totalSec?` · ${fmtDuration(totalSec)}`:'';
+      const safeTag=tag.replace(/'/g,"\\'");
+      return`<div class="tap-card ${isReady?'tap-ready':'tap-offgas'}" style="flex-direction:column;align-items:stretch;" data-tag="${tag.replace(/"/g,'&quot;')}" data-action="open-output-tag">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="tap-icon" style="background:${isReady?'rgba(239,83,80,0.1)':'rgba(255,183,77,0.1)'}">🏷️</div>
+          <div class="tap-body">
+            <div class="tap-strain">${last.strain||'—'}</div>
+            <div class="tap-meta">${tagShortStr} · ${runsLabel}${durStr} · ${endedDate}</div>
+          </div>
+          ${isReady?`<span class="tap-pill tap-pill-ready">Ready</span>`:`<span class="tap-pill tap-pill-offgas">~${remainH}h</span>`}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const active=batches.filter(b=>!isComplete(b));
+  document.getElementById('dash-active').innerHTML=active.length
+    ?active.slice(0,4).map(aCard).join('')+(active.length>4?`<button class="btn bg2" style="margin-top:4px;" onclick="goTo('active-log')">View all ${active.length} active batches</button>`:'')
+    :`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Tap + to start a run</div></div>`;
+
+  const recent=batches.filter(b=>isComplete(b)).slice(0,4);
+  document.getElementById('dash-recent').innerHTML=recent.length
+    ?recent.map(bCard).join('')
+    :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No completed batches yet</p>`;
+}
+
+function bCard(b){
+  const r=ROUTES[b.route];
+  const y=b.yieldPct||0;
+  const fill=Math.min(y*5,100);
+  const col=yColor(y,b.route);
+  const sub=b.route==='diamonds'?fmtDate(b.date):b.strain;
+  const extraInfo=VAPE_ROUTES.includes(b.route)&&b.flavor?` · ${b.flavor}`:'';
+  return`<div class="card" onclick="viewBatch('${b.id}')">
+    <div class="card-row">
+      <div style="min-width:0;flex:1;">
+        <div style="font-family:var(--mono);font-size:13px;font-weight:500;">${b.batchId}</div>
+        ${b.outTag?`<div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;">${b.outTag}</div>`:''}
+        <div class="card-sub" style="margin-top:3px;">${sub} · ${r?.label||''}${extraInfo}</div>
+      </div>
+      <span class="badge ${yBadge(y,b.route)}">${y.toFixed(1)}%</span>
+    </div>
+    <div class="ybar"><div class="yfill" style="width:${fill}%;background:${col}"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px;">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${fmtDate(b.date)}</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${(b.totalIn||0).toFixed(0)}g → ${(b.outWeight||0).toFixed(1)}g</span>
+    </div>
+  </div>`;
+}
+
+function aCard(b){
+  const r=ROUTES[b.route];
+  const y=b.yieldPct||0;
+  const col=yColor(y,b.route);
+  const initWt=b.outWeightInitial||b.outWeight||0;
+  const curWt=b.outWeight||0;
+  const loss=initWt-curWt;
+  const lossPill=loss>0.01?`<span class="loss-pill">-${loss.toFixed(1)}g purge</span>`:'';
+  const status=getBatchStatus(b);
+  const statusLabel=getStageLabel(status,b.route);
+  return`<div class="card" onclick="viewBatch('${b.id}')">
+    <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:var(--mono);font-size:13px;font-weight:500;">${b.batchId}</div>
+        ${b.outTag?`<div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;">${b.outTag}</div>`:''}
+      </div>
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+        <span class="badge ${stageBadgeCls(status)}" style="font-size:9px;">${statusLabel}</span>
+        <span class="badge bx" style="font-size:9px;">${r?.icon||''} ${r?.label||''}</span>
+        ${lossPill}
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px;">${fmtDate(b.date)} · ${b.tech||''}</div>
+    <div class="acard-wts">
+      <div class="awt-item"><div class="awt-label">Input</div><div class="awt-val">${(b.totalIn||0).toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div></div>
+      <div class="awt-sep">→</div>
+      <div class="awt-item"><div class="awt-label">Current Out</div><div class="awt-val" style="color:${col}">${curWt.toFixed(1)}<span style="font-size:11px;color:var(--text3)">g</span></div></div>
+      <div class="awt-sep"></div>
+      <div class="awt-item"><div class="awt-label">Yield</div><div class="awt-val yield" style="color:${col}">${y.toFixed(1)}%</div></div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   ACTIVE BATCH LOG
+============================================================ */
+function renderActiveLog(){
+  const active=batches.filter(b=>!isComplete(b));
+  const el=document.getElementById('active-log-content');
+  if(!active.length){
+    el.innerHTML=`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Tap + to start a new run</div></div>`;
+    return;
+  }
+  el.innerHTML=active.map(aCard).join('');
+}
+
+/* ============================================================
+   MARK COMPLETE
+============================================================ */
+let _completedBatchId=null;
+async function markComplete(id){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const prevStatus=getBatchStatus(b);
+  b.status='complete';
+  b.completedAt=Date.now();
+  if(!b.statusHistory)b.statusHistory=[];
+  b.statusHistory.push({
+    from:prevStatus,to:'complete',ts:Date.now(),
+    uid:currentUser?.uid||'',name:currentUserData?.name||currentUser?.email||''
+  });
+  await saveDoc(b);
+  _completedBatchId=id;
+  document.getElementById('cn-bid').textContent=b.batchId;
+  document.getElementById('cn-tag').textContent=`Tag: ${b.outTag||'—'}`;
+  document.getElementById('complete-notice').classList.add('vis');
+  renderDash();
+  if(curScreen==='active-log')renderActiveLog();
+}
+function closeCN(){
+  document.getElementById('complete-notice').classList.remove('vis');
+  if(_completedBatchId){viewBatch(_completedBatchId);_completedBatchId=null;}
+}
+
+/* ============================================================
+   EDIT BATCH
+============================================================ */
+function editBatch(id){
+  _editBatchId=id;
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const isDiam=b.route==='diamonds';
+  const isVape=VAPE_ROUTES.includes(b.route);
+  const isDownstream=ROUTES[b.route]?.stage>1;
+  const curWt=b.outWeight||0;
+  const initWt=b.outWeightInitial||curWt;
+  const loss=initWt-curWt;
+
+  document.getElementById('edit-content').innerHTML=`
+    <div style="padding:0 0 100px;">
+
+      <div class="edit-section">
+        <div class="edit-section-title">Batch ID</div>
+        <div class="fg" style="margin-bottom:0;">
+          <input id="e-batchid" class="fi mono" type="text" value="${b.batchId}" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:14px;">
+          <div class="fhint">Edit carefully — must match what is entered in METRC</div>
+        </div>
+      </div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">Output Weight · Solvent Tracking</div>
+        <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="lt-label">CURRENT OUTPUT WEIGHT</div>
+            <div style="font-family:var(--mono);font-size:26px;font-weight:500;margin-top:2px;">${curWt.toFixed(2)}<span style="font-size:13px;color:var(--text2);">g</span></div>
+          </div>
+          ${loss>0.01?`<div style="text-align:right;"><div class="lt-label">TOTAL PURGE LOSS</div><div style="font-family:var(--mono);font-size:16px;font-weight:500;color:var(--amber);">-${loss.toFixed(2)}g</div></div>`:''}
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:4px;">
+          <button class="btn bs" style="flex:1;padding:10px;font-size:13px;" onclick="openWadj('${id}','outWeight','Output Weight',false)">+ Add Mass</button>
+          <button class="btn bs" style="flex:1;padding:10px;font-size:13px;" onclick="openWadj('${id}','outWeight','Output Weight',true)">− Subtract Mass</button>
+        </div>
+        ${isDiam?`
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="lt-label">HTE WEIGHT (stays on crude tag)</div>
+            <div style="font-family:var(--mono);font-size:13px;font-weight:500;">${(b.hteWeight||0).toFixed(2)}g</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn bs" style="flex:1;padding:10px;font-size:13px;" onclick="openWadj('${id}','hteWeight','HTE Weight',false)">+ Add HTE</button>
+            <button class="btn bs" style="flex:1;padding:10px;font-size:13px;" onclick="openWadj('${id}','hteWeight','HTE Weight',true)">− Subtract HTE</button>
+          </div>
+        </div>`:''}
+      </div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">Product Tag</div>
+        <div class="fg" style="margin-bottom:0;">
+          <div class="sg">
+            <input id="e-outtag" class="fi mono" type="text" value="${b.outTag||''}" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:12px">
+            <div class="scanbtn" onclick="openScanner('e-outtag')">${barIcon()}</div>
+          </div>
+        </div>
+      </div>
+
+      ${isVape?`
+      <div class="edit-section">
+        <div class="edit-section-title">Flavor / SKU</div>
+        <div class="fg"><label class="flabel">Primary Flavor</label>
+          <input id="e-flavor" class="fi" type="text" value="${b.flavor||''}"></div>
+        ${(b.extraOuts||[]).map((o,i)=>`
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:6px;">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px;">${o.flavor||'OUTPUT '+(i+1)}</div>
+            <div class="fg" style="margin-bottom:6px;"><label class="flabel">Weight (g)</label>
+              <input id="e-xwt-${i}" class="fi" type="number" step="0.01" value="${o.weight||0}" inputmode="decimal"></div>
+            <div class="fg" style="margin-bottom:0;"><label class="flabel">Tag</label>
+              <div class="sg"><input id="e-xtag-${i}" class="fi mono" type="text" value="${o.tag||''}" maxlength="24" style="font-size:12px">
+                <div class="scanbtn" onclick="openScanner('e-xtag-${i}')">${barIcon()}</div></div></div>
+          </div>`).join('')}
+      </div>`:''}
+
+      <div class="edit-section">
+        <div class="edit-section-title">Source Packages</div>
+        <div id="e-src-list">
+          ${(b.srcPkgs||[]).map((p,i)=>`
+            <div id="e-spkg-${i}" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:4px;">${p.tag||'—'}${p.srcBatchId?' · '+p.srcBatchId:''}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <label class="flabel" style="margin:0;white-space:nowrap;">Weight (g)</label>
+                  <input id="e-spwt-${i}" class="fi" type="number" step="0.01" value="${p.weight||0}" inputmode="decimal" style="max-width:100px;padding:6px 8px;font-family:var(--mono);font-size:13px;">
+                </div>
+              </div>
+              <button class="prm" onclick="removeEditSrcPkg(${i})" style="margin-top:2px;font-size:18px;">✕</button>
+            </div>`).join('')}
+        </div>
+        <button class="addbtn" onclick="toggleEditAddPkg()">+ Add Source Package</button>
+        <div id="e-add-pkg-form" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:8px;">
+          <div class="fg">
+            <label class="flabel">Tag #</label>
+            <div class="sg"><input id="e-new-tag" class="fi mono" type="text" placeholder="1A4…" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" style="font-size:12px" oninput="lookupEditTag(this.value)">
+              <div class="scanbtn" onclick="openScanner('e-new-tag')">${barIcon()}</div></div>
+            <div class="fhint" id="e-new-tag-hint"></div>
+          </div>
+          ${isDownstream?`<div class="fg"><label class="flabel">Source Batch ID</label>
+            <input id="e-new-bid" class="fi mono" type="text" placeholder="APFR-CRUDE-050426" style="font-size:13px"></div>`:''}
+          <div class="fg" style="margin-bottom:8px;"><label class="flabel">Weight (g)</label>
+            <input id="e-new-wt" class="fi" type="number" step="0.01" inputmode="decimal"></div>
+          <button class="btn bs" style="padding:9px;" onclick="addEditSrcPkg('${id}',${isDownstream})">Add Package</button>
+        </div>
+      </div>
+
+      <div class="edit-section">
+        <div class="edit-section-title">Notes</div>
+        <div class="fg" style="margin-bottom:0;">
+          <input id="e-notes" class="fi" type="text" placeholder="Add notes…" value="${b.notes||''}">
+        </div>
+      </div>
+
+      <div class="btns" style="padding:0 0 12px;">
+        <button class="btn bp" onclick="saveEdit('${id}')">Save Changes</button>
+        <button class="btn bg2" onclick="viewBatch('${id}')">Cancel</button>
+      </div>
+    </div>`;
+  goTo('edit-batch');
+}
+
+let _editBatchId=null;
+async function removeEditSrcPkg(i){
+  const b=batches.find(x=>x.id===_editBatchId);
+  if(!b)return;
+  b.srcPkgs.splice(i,1);
+  b.totalIn=(b.srcPkgs||[]).reduce((s,p)=>s+(p.weight||0),0)||b.totalIn;
+  await saveDoc(b);editBatch(_editBatchId);
+}
+function lookupEditTag(val){
+  const bidEl=document.getElementById('e-new-bid');
+  const hint=document.getElementById('e-new-tag-hint');
+  if(!hint)return;
+  const match=batches.find(b=>b.outTag===val.trim());
+  if(match){
+    if(bidEl)bidEl.value=match.batchId;
+    const avail=(match.outWeight||0).toFixed(2);
+    const product=ROUTES[match.route]?.label||match.route;
+    const strain=match.strain?match.strain+' · ':'';
+    hint.innerHTML=`<span style="color:var(--accent)">✓ ${strain}${product}</span> · Available: <span style="color:var(--text);font-weight:500;">${avail}g</span>`;
+  } else if(val.length===24){
+    hint.innerHTML=`<span style="color:var(--text3)">Not found in saved batches — enter batch ID manually</span>`;
+  } else {
+    hint.textContent='';
+  }
+}
+
+function toggleEditAddPkg(){
+  const f=document.getElementById('e-add-pkg-form');
+  if(f)f.style.display=f.style.display==='none'?'block':'none';
+}
+async function addEditSrcPkg(id,isDownstream){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const tag=document.getElementById('e-new-tag')?.value.trim();
+  const wt=parseFloat(document.getElementById('e-new-wt')?.value)||0;
+  if(!tag||tag.length!==24){toast('Tag must be 24 characters');return;}
+  if(!wt){toast('Enter a weight');return;}
+  const pkg={tag,weight:wt};
+  if(isDownstream){
+    const bid=document.getElementById('e-new-bid')?.value.trim();
+    if(!bid){toast('Enter source batch ID');return;}
+    pkg.srcBatchId=bid;
+  }
+  b.srcPkgs.push(pkg);
+  b.totalIn=(b.srcPkgs||[]).reduce((s,p)=>s+(p.weight||0),0);
+  await saveDoc(b);editBatch(id);
+}
+
+async function saveEdit(id){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  // Batch ID
+  const newBid=document.getElementById('e-batchid')?.value.trim();
+  if(newBid)b.batchId=newBid;
+  // Output tag
+  const newTag=document.getElementById('e-outtag')?.value.trim();
+  if(newTag)b.outTag=newTag;
+  // Vape flavors
+  const flEl=document.getElementById('e-flavor');
+  if(flEl)b.flavor=flEl.value.trim();
+  if(b.extraOuts){
+    b.extraOuts.forEach((o,i)=>{
+      const wEl=document.getElementById(`e-xwt-${i}`);
+      const tEl=document.getElementById(`e-xtag-${i}`);
+      if(wEl)o.weight=parseFloat(wEl.value)||0;
+      if(tEl&&tEl.value.trim())o.tag=tEl.value.trim();
+    });
+  }
+  // Source package weights (direct edit, not weight-adj flow)
+  (b.srcPkgs||[]).forEach((p,i)=>{
+    const el=document.getElementById(`e-spwt-${i}`);
+    if(el)p.weight=parseFloat(el.value)||0;
+  });
+  b.totalIn=(b.srcPkgs||[]).reduce((s,p)=>s+(p.weight||0),0)||b.totalIn;
+  b.notes=document.getElementById('e-notes')?.value.trim()||b.notes;
+  b.editedAt=Date.now();
+  await saveDoc(b);
+  toast('Changes saved ✓');
+  viewBatch(id);
+}
+
+/* ============================================================
+   WEIGHT ADJUSTMENT MODAL
+============================================================ */
+let _wadjBatchId=null, _wadjField=null, _wadjSubtract=false, _wadjReturnFn=null;
+
+function openWadj(id, field, label, subtract=false, returnFn=null){
+  _wadjBatchId=id; _wadjField=field; _wadjSubtract=subtract; _wadjReturnFn=returnFn;
+  document.getElementById('wadj-amount').value='';
+  document.getElementById('wadj-reason').value='';
+  document.getElementById('wadj-preview').style.display='none';
+  document.getElementById('wadj-confirm-btn').disabled=true;
+  // Set active button style
+  const addBtn=document.getElementById('wadj-add-btn');
+  const subBtn=document.getElementById('wadj-sub-btn');
+  addBtn.className='btn bg2'+(subtract?'':' wadj-type-active');
+  subBtn.className='btn bg2'+(subtract?' wadj-type-active':'');
+  document.getElementById('wadj-modal').classList.add('vis');
+  setTimeout(()=>document.getElementById('wadj-amount')?.focus(),100);
+}
+function setWadjType(type){
+  _wadjSubtract=(type==='subtract');
+  document.getElementById('wadj-add-btn').className='btn bg2'+(_wadjSubtract?'':' wadj-type-active');
+  document.getElementById('wadj-sub-btn').className='btn bg2'+(_wadjSubtract?' wadj-type-active':'');
+  updateWadjPreview();
+}
+function updateWadjPreview(){
+  const b=batches.find(x=>x.id===_wadjBatchId);
+  if(!b)return;
+  const amt=parseFloat(document.getElementById('wadj-amount')?.value)||0;
+  const reason=document.getElementById('wadj-reason')?.value.trim();
+  const before=b[_wadjField]||0;
+  const after=_wadjSubtract?before-amt:before+amt;
+  const prev=document.getElementById('wadj-preview');
+  if(amt>0){
+    prev.style.display='block';
+    document.getElementById('wadj-before').textContent=before.toFixed(2)+'g';
+    document.getElementById('wadj-delta').textContent=(_wadjSubtract?'−':'+')+''+amt.toFixed(2)+'g';
+    document.getElementById('wadj-delta').style.color=_wadjSubtract?'var(--amber)':'var(--accent)';
+    document.getElementById('wadj-after').textContent=Math.max(0,after).toFixed(2)+'g';
+  } else {
+    prev.style.display='none';
+  }
+  document.getElementById('wadj-confirm-btn').disabled=!(amt>0&&reason);
+}
+function closeWadj(){document.getElementById('wadj-modal').classList.remove('vis');}
+async function confirmWadj(){
+  const b=batches.find(x=>x.id===_wadjBatchId);
+  if(!b)return;
+  const amt=parseFloat(document.getElementById('wadj-amount')?.value)||0;
+  const reason=document.getElementById('wadj-reason')?.value.trim();
+  if(!amt||!reason){toast('Enter amount and reason');return;}
+  const before=b[_wadjField]||0;
+  const after=Math.max(0,_wadjSubtract?before-amt:before+amt);
+  // Track initial weight on first output weight change
+  if(_wadjField==='outWeight'&&!b.outWeightInitial)b.outWeightInitial=before;
+  b[_wadjField]=after;
+  if(_wadjField==='outWeight')b.yieldPct=calcY(after,b.totalIn);
+  // Append to weight history
+  if(!b.weightHistory)b.weightHistory=[];
+  b.weightHistory.push({
+    ts:Date.now(),
+    field:_wadjField,
+    type:_wadjSubtract?'subtract':'add',
+    delta:amt,
+    before,
+    after,
+    reason
+  });
+  b.editedAt=Date.now();
+  await saveDoc(b);
+  closeWadj();
+  toast((_wadjSubtract?'−':'+')+''+amt.toFixed(2)+'g recorded');
+  // Return to whatever called openWadj (edit screen, inventory, batch detail)
+  if(_wadjReturnFn) _wadjReturnFn();
+  else editBatch(_wadjBatchId);
+}
+
+
+
+/* ============================================================
+   BATCH DETAIL
+============================================================ */
+function viewBatch(id){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const r=ROUTES[b.route];
+  const y=b.yieldPct||0;
+  const col=yColor(y,b.route);
+
+  const pkgRows=(b.srcPkgs||[]).map(p=>`
+    <div class="pitem">
+      <div style="flex:1;min-width:0;">
+        <div class="ptag">${p.tag}</div>
+        ${p.srcBatchId?`<div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:1px;">${p.srcBatchId}</div>`:''}
+      </div>
+      <span class="pwt">${p.weight}g</span>
+    </div>`).join('');
+
+  const extraRows=(b.extraOuts||[]).map(o=>`
+    <div class="srow"><span class="skey">${o.flavor||'Output'} Tag</span><span class="sval" style="font-size:10.5px">${o.tag}</span></div>
+    <div class="srow"><span class="skey">${o.flavor||'Output'} Wt</span><span class="sval">${o.weight}g</span></div>`).join('');
+
+  const parentRows=(b.parentIds||[]).map(pid=>{
+    const pb=batches.find(x=>x.id===pid);
+    return pb?`<div class="srow"><span class="skey">Source Batch</span><span class="sval">${pb.batchId}</span></div>`:'';
+  }).join('');
+
+  const hist=(b.weightHistory||[]);
+  const histHtml=hist.length?`
+    <div class="sec">Weight Adjustment History</div>
+    <div class="card nc" style="padding:0;overflow:hidden;">
+      ${[...hist].reverse().map(h=>{
+        const fieldLabel=h.field==='hteWeight'?'HTE':'Output';
+        const ts=new Date(h.ts);
+        const tStr=ts.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+ts.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        return`<div class="whist-item">
+          <div class="whist-delta ${h.type==='add'?'whist-add':'whist-sub'}">${h.type==='add'?'+':'−'}${h.delta.toFixed(2)}g</div>
+          <div class="whist-info">
+            <div class="whist-reason">${h.reason}</div>
+            <div class="whist-meta">${fieldLabel} · ${h.before.toFixed(2)}g → ${h.after.toFixed(2)}g · ${tStr}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`:'';
+
+  const bStatus=getBatchStatus(b);
+  const bStages=getStages(b.route);
+  const bCurIdx=bStages.indexOf(bStatus);
+  const bNextStatus=bCurIdx>=0&&bCurIdx<bStages.length-1?bStages[bCurIdx+1]:null;
+  const bAdvLabel=bNextStatus?`Advance → ${getStageLabel(bNextStatus,b.route)}`:'';
+
+  document.getElementById('detail-content').innerHTML=`
+    ${renderPipeline(b)}
+    <div class="ydisplay">
+      <div class="ypct" style="color:${col}">${y.toFixed(2)}%</div>
+      <div class="ysub">${r?.label||''} Yield</div>
+      <div class="yform">${(b.outWeight||0).toFixed(1)}g ÷ ${(b.totalIn||0).toFixed(1)}g</div>
+    </div>
+    <div class="card nc">
+      <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500">${b.batchId}</span></div>
+      ${b.outTag?`<div class="srow"><span class="skey">Product Tag</span><span class="sval" style="font-size:11px">${b.outTag}</span></div>`:''}
+      ${b.route!=='diamonds'?`<div class="srow"><span class="skey">Strain</span><span class="sval">${b.strain}</span></div>`:''}
+      <div class="srow"><span class="skey">Product</span><span class="sval">${r?.label||b.route}</span></div>
+      ${b.biomassType?`<div class="srow"><span class="skey">Biomass</span><span class="sval">${bLabel(b.biomassType)}</span></div>`:''}
+      <div class="srow"><span class="skey">Date</span><span class="sval">${fmtDate(b.date)}</span></div>
+      <div class="srow"><span class="skey">Tech</span><span class="sval">${b.tech}</span></div>
+      <div class="srow"><span class="skey">Status</span><span class="sval badge ${stageBadgeCls(getBatchStatus(b))}" style="font-size:11px;padding:3px 8px;">${getStageLabel(getBatchStatus(b),b.route)}</span></div>
+      ${parentRows}
+      <div class="srow"><span class="skey">Total Input</span><span class="sval">${(b.totalIn||0).toFixed(1)}g</span></div>
+      <div class="srow"><span class="skey">Product Weight</span><span class="sval">${(b.outWeight||0).toFixed(1)}g</span></div>
+      ${b.outWeightInitial&&b.outWeightInitial!==b.outWeight?`<div class="srow"><span class="skey">Initial Wt</span><span class="sval">${b.outWeightInitial.toFixed(1)}g <span style="color:var(--amber)">(-${(b.outWeightInitial-b.outWeight).toFixed(1)}g purge)</span></span></div>`:''}
+      ${b.hteNewTag&&b.hteTag?`
+        <div class="srow"><span class="skey">HTE Batch ID</span><span class="sval accent" style="font-size:11px">${b.hteBatchId||'THCa-HTE-'+dateCode(b.date)}</span></div>
+        <div class="srow"><span class="skey">HTE Tag</span><span class="sval" style="font-size:11px">${b.hteTag}</span></div>
+        <div class="srow"><span class="skey">HTE Weight</span><span class="sval">${b.hteWeight}g</span></div>
+      `:b.hteWeight?`<div class="srow"><span class="skey">HTE Wt (crude tag)</span><span class="sval">${b.hteWeight}g</span></div>`:''}
+      ${b.flavor?`<div class="srow"><span class="skey">Flavor</span><span class="sval">${b.flavor}</span></div>`:''}
+      ${extraRows}
+      ${b.notes?`<div class="srow"><span class="skey">Notes</span><span class="sval">${b.notes}</span></div>`:''}
+    </div>
+    ${pkgRows?`<div class="sec">Source Packages</div><div class="plist">${pkgRows}</div>`:''}
+    ${histHtml}
+    ${INVENTORY_ROUTES.includes(b.route)?`
+    <div class="sec">Adjust Package Weight</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button class="btn bs" style="flex:1;" onclick="openWadj('${b.id}','outWeight','Package Weight',false,()=>{viewBatch('${b.id}');})">+ Add Mass</button>
+      <button class="btn bs" style="flex:1;" onclick="openWadj('${b.id}','outWeight','Package Weight',true,()=>{viewBatch('${b.id}');})">− Subtract Mass</button>
+    </div>`:''}
+    <div class="btns">
+      ${!isComplete(b)&&bNextStatus?`
+        <button class="btn bp" onclick="advanceStatus('${b.id}')">${bAdvLabel}</button>
+        <button class="btn bs" onclick="editBatch('${b.id}')">✎ Edit Batch</button>
+      `:`
+        ${DOWNSTREAM_MAP[b.route]?`<button class="btn bs" onclick="downstream('${b.id}')">Create Downstream Batch →</button>`:''}
+        <button class="btn bg2" onclick="reopenBatch('${b.id}')">↩ Reopen Batch</button>
+      `}
+      <button class="btn bg2" onclick="openStatusSheet('${b.id}')" style="width:100%;">Correct Status…</button>
+      <button class="btn bdr" onclick="delBatch('${b.id}')">Delete Batch</button>
+    </div>`;
+  goTo('batch-detail');
+}
+
+function delBatch(id){
+  showConfirm(
+    'Delete this batch? This cannot be undone.',
+    async()=>{await deleteDoc(id);toast('Batch deleted');goTo('dashboard');}
+  );
+}
+
+function reopenBatch(id){
+  showConfirm(
+    'Reopen this batch? It will move back to Purging.',
+    async()=>{
+      const b=batches.find(x=>x.id===id);
+      if(!b)return;
+      b.status='purging';
+      delete b.completedAt;
+      if(!b.statusHistory)b.statusHistory=[];
+      b.statusHistory.push({
+        from:'complete',to:'purging',ts:Date.now(),
+        uid:currentUser?.uid||'',name:currentUserData?.name||currentUser?.email||''
+      });
+      await saveDoc(b);
+      toast('Batch reopened');
+      viewBatch(id);
+    },
+    'Reopen','bs'
+  );
+}
+
+/* ============================================================
+   HISTORY
+============================================================ */
+function renderHistory(){
+  const f=document.getElementById('hist-filter')?.value||'';
+  const list=f?batches.filter(b=>b.route===f):[...batches].reverse();
+  const el=document.getElementById('hist-list');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="eicon">📋</div><div class="etitle">No batches found</div></div>`;return;}
+  const byDate={};
+  list.forEach(b=>{const k=b.date||'?';(byDate[k]||(byDate[k]=[])).push(b);});
+  el.innerHTML=Object.entries(byDate).map(([date,bs])=>`
+    <div style="margin-bottom:14px;"><div class="sec" style="margin-top:0">${fmtDate(date)}</div>${bs.map(bCard).join('')}</div>`).join('');
+}
+
+/* ============================================================
+   WIZARD
+============================================================ */
+function startNewBatch(){resetDraft();wStep=1;goTo('new-batch');}
+
+function downstream(pid){
+  const p=batches.find(b=>b.id===pid);
+  if(!p)return;
+  resetDraft();
+  draft.parentIds=[pid];
+  draft.strain=p.strain;draft.strainCode=p.strainCode;draft.tech=p.tech;
+  draft.route=DOWNSTREAM_MAP[p.route]||null;
+  wStep=1;goTo('new-batch');
+}
+
+function renderWiz(){
+  let dots='';
+  for(let i=1;i<=5;i++){
+    if(i>1)dots+='<div class="sline"></div>';
+    const cls=i<wStep?'done':i===wStep?'act':'';
+    dots+=`<div class="sdot ${cls}"></div>`;
+  }
+  document.getElementById('step-dots').innerHTML=dots;
+  ({1:s1,2:s2,3:s3,4:s4,5:s5})[wStep]?.(
+    document.getElementById('wiz-content'),
+    document.getElementById('wiz-actions')
+  );
+}
+
+/* Step 1 — Route */
+function s1(c,a){
+  document.getElementById('hdr-title').textContent='Select Product';
+  const rc=k=>{
+    const r=ROUTES[k];const sel=draft.route===k;
+    return`<div class="rcard ${sel?'sel':''}" onclick="pickRoute('${k}')">
+      <div class="ricon">${r.icon}</div>
+      <div class="rinfo"><div class="rtitle">${r.label}</div><div class="rdesc">${r.desc}</div></div>
+      <div class="rarrow">${sel?'✓':'›'}</div>
+    </div>`;
+  };
+  c.innerHTML=`
+    <div class="sdiv"><div class="sdiv-l">Stage 1 · From Biomass</div><div class="sdiv-line"></div></div>
+    ${rc('crude')}${rc('live-badder')}${rc('cured-badder')}
+    <div class="sdiv"><div class="sdiv-l">Stage 2 · From Crude / Badder</div><div class="sdiv-line"></div></div>
+    ${rc('diamonds')}${rc('lr-vape')}${rc('cr-vape')}
+    <div class="sdiv"><div class="sdiv-l">Stage 3 · From Diamonds</div><div class="sdiv-line"></div></div>
+    ${rc('liquid-diamonds')}${rc('ld-vape')}`;
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${!draft.route?'disabled':''}>Continue →</button></div>`;
+}
+function pickRoute(k){
+  if(draft.route!==k){
+    // Route changed — clear any packages that belonged to previous route
+    draft.srcPkgs=[];
+    draft.totalIn=0;
+  }
+  draft.route=k;
+  renderWiz();
+}
+
+/* Step 2 — Batch details or parent selection */
+function s2(c,a){
+  const stage=ROUTES[draft.route]?.stage||1;
+  document.getElementById('hdr-title').textContent=stage===1?'Batch Details':'Select Source';
+
+  if(stage===1){
+    const inferred=BIOMASS_INFER[draft.route];
+    const opts=BIOMASS_OPTIONS[draft.route];
+    if(inferred) draft.biomassType=inferred.v;
+
+    const biomassBlock = inferred
+      ? `<div class="fg">
+          <label class="flabel">Biomass Type</label>
+          <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
+            <span style="font-size:13px;flex:1;">${inferred.l}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;">INFERRED</span>
+          </div>
+        </div>`
+      : `<div class="fg">
+          <label class="flabel">Biomass Type <span class="req">*</span></label>
+          <select id="f-bio" class="fi">
+            <option value="">Select biomass type…</option>
+            ${(opts||[]).map(o=>`<option value="${o.v}" ${draft.biomassType===o.v?'selected':''}>${o.l}</option>`).join('')}
+          </select>
+        </div>`;
+
+    c.innerHTML=`
+      <div class="fg">
+        <label class="flabel">Strain Name <span class="req">*</span></label>
+        <input id="f-strain" class="fi" type="text" placeholder="e.g. Apple Fritter" value="${draft.strain}" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="fg">
+        <label class="flabel">Strain Code <span class="req">*</span></label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="f-code" class="fi mono" type="text" placeholder="APFR" maxlength="6" value="${draft.strainCode}" style="max-width:88px;text-transform:uppercase;">
+          <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">Auto-gen · editable</span>
+        </div>
+        <div class="fhint">4 chars · numbered strains (GMO #5 → GMO5)</div>
+      </div>
+      ${biomassBlock}
+      <div class="row2">
+        <div class="fg"><label class="flabel">Date <span class="req">*</span></label><input id="f-date" class="fi" type="date" value="${draft.date}"></div>
+        <div class="fg"><label class="flabel">Tech <span class="req">*</span></label><input id="f-tech" class="fi" type="text" placeholder="Name" value="${draft.tech}"></div>
+      </div>`;
+    setTimeout(()=>{
+      const si=document.getElementById('f-strain');
+      const ci=document.getElementById('f-code');
+      if(si&&ci){
+        si.addEventListener('input',()=>{draft.strain=si.value;draft.strainCode=strCode(si.value);ci.value=draft.strainCode;});
+        ci.addEventListener('input',()=>{draft.strainCode=ci.value.toUpperCase();ci.value=draft.strainCode;});
+      }
+    },30);
+  } else {
+    // Downstream: manual date/tech entry.
+    // diamonds — batch ID is always THCa-POW-{date}, strain irrelevant.
+    // Stage 3 (liquid-diamonds, ld-vape) — strain not required either.
+    const noStrain=ROUTES[draft.route]?.stage===3||draft.route==='diamonds';
+    const strainBlock=noStrain
+      ? '' // no strain block at all
+      : (draft.strain
+          ? `<div class="fg"><label class="flabel">Strain (pre-filled)</label>
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;display:flex;justify-content:space-between;">
+                <span>${draft.strain}</span><span style="font-family:var(--mono);font-size:10px;color:var(--accent)">${draft.strainCode}</span>
+              </div></div>`
+          : `<div class="fg"><label class="flabel">Strain Name</label>
+              <input id="f-strain-ds" class="fi" type="text" placeholder="e.g. Apple Fritter" value="${draft.strain}" autocomplete="off">
+              <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
+                <input id="f-code-ds" class="fi mono" type="text" placeholder="APFR" maxlength="6" value="${draft.strainCode}" style="max-width:88px;text-transform:uppercase;">
+                <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">Strain code</span>
+              </div></div>`);
+    c.innerHTML=`
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);line-height:1.6;">
+        Source packages will be scanned in the next step.<br>Enter each tag, batch ID, and weight manually.
+      </div>
+      ${strainBlock}
+      <div class="row2">
+        <div class="fg"><label class="flabel">Date <span class="req">*</span></label><input id="f-date" class="fi" type="date" value="${draft.date}"></div>
+        <div class="fg"><label class="flabel">Tech <span class="req">*</span></label><input id="f-tech" class="fi" type="text" placeholder="Name" value="${draft.tech}"></div>
+      </div>`;
+    setTimeout(()=>{
+      const si=document.getElementById('f-strain-ds');
+      const ci=document.getElementById('f-code-ds');
+      if(si&&ci){
+        si.addEventListener('input',()=>{draft.strain=si.value;draft.strainCode=strCode(si.value);ci.value=draft.strainCode;});
+        ci.addEventListener('input',()=>{draft.strainCode=ci.value.toUpperCase();ci.value=draft.strainCode;});
+      }
+    },30);
+  }
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()">Continue →</button></div>`;
+}
+
+function toggleParent(id){
+  const i=draft.parentIds.indexOf(id);
+  i===-1?draft.parentIds.push(id):draft.parentIds.splice(i,1);
+  if(draft.parentIds.length){
+    const p=batches.find(b=>b.id===draft.parentIds[0]);
+    if(p){draft.strain=p.strain||'';draft.strainCode=p.strainCode||'';}
+  }
+  renderWiz();
+}
+
+/* Step 3 — Source packages or confirm input */
+function s3(c,a){
+  const stage=ROUTES[draft.route]?.stage||1;
+  document.getElementById('hdr-title').textContent=stage===1?'Source Packages':'Confirm Input';
+
+  if(stage===1){
+    const total=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
+    draft.totalIn=total;
+    c.innerHTML=`
+      <div class="fg">
+        <label class="flabel">METRC Tag # <span class="req">*</span></label>
+        <div class="sg">
+          <input id="p-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false">
+          <div class="scanbtn" onclick="openScanner('p-tag')">${barIcon()}</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="flabel">Weight (g) <span class="req">*</span></label>
+        <input id="p-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" inputmode="decimal">
+      </div>
+      <button class="btn bs" style="margin-bottom:12px;" onclick="addPkg(false)">+ Add Package</button>
+      <div class="div"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span class="sec" style="margin:0">Added (${draft.srcPkgs.length})</span>
+        <span style="font-family:var(--mono);font-size:13px;">Total: <strong>${total.toFixed(1)}g</strong></span>
+      </div>
+      <div class="plist">${draft.srcPkgs.length
+        ?draft.srcPkgs.map((p,i)=>`<div class="pitem">
+            <div style="flex:1;min-width:0;">
+              <div class="ptag">${p.tag}</div>
+              ${p.srcBatchId?`<div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${p.srcBatchId}</div>`:''}
+            </div>
+            <span class="pwt">${p.weight}g</span>
+            <span class="prm" onclick="rmPkg(${i})">✕</span></div>`).join('')
+        :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No packages added yet</p>`}
+      </div>`;
+    setTimeout(()=>{document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')addPkg(false);});},30);
+  } else {
+    // Diamonds: single source batch only
+    // Other downstream routes: multi-package manual entry
+    const isDiamRoute=draft.route==='diamonds';
+    const total=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
+    draft.totalIn=total;
+    const pkg=draft.srcPkgs[0]||null; // diamonds always one package
+
+    if(isDiamRoute){
+      document.getElementById('hdr-title').textContent='Source Crude Package';
+      const srcBatch=pkg?batches.find(b=>b.outTag===pkg.tag):null;
+      c.innerHTML=`
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:14px;font-size:12px;color:var(--text2);">
+          Enter the single crude source tag being harvested for this diamonds batch.
+        </div>
+        <div class="fg">
+          <label class="flabel">Crude Source Tag <span class="req">*</span></label>
+          <div class="sg">
+            <input id="p-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" value="${pkg?.tag||''}" autocomplete="off" autocorrect="off" spellcheck="false" oninput="onDiamTagInput(this.value)">
+            <div class="scanbtn" onclick="openScanner('p-tag')">${barIcon()}</div>
+          </div>
+          <div class="fhint" id="p-tag-hint">${srcBatch?`<span style="color:var(--accent)">✓ ${srcBatch.strain||''} · ${ROUTES[srcBatch.route]?.label||''}</span> · Available: <strong>${(srcBatch.outWeight||0).toFixed(2)}g</strong>`:'Scan or enter crude tag'}</div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Source Batch ID <span class="req">*</span></label>
+          <input id="p-batchid" class="fi mono" type="text" placeholder="e.g. APFR-CRUDE-050426" value="${pkg?.srcBatchId||srcBatch?.batchId||''}" style="font-size:13px" autocomplete="off">
+        </div>
+        <div id="p-strain-row" style="display:none;">
+          <div class="row2">
+            <div class="fg">
+              <label class="flabel">Strain Name</label>
+              <input id="p-strain-name" class="fi" type="text" placeholder="e.g. Apple Fritter" autocomplete="off" autocorrect="off" oninput="draft.strain=this.value;const sc=this.value.replace(/[^a-zA-Z0-9\\s#]/g,'');const el=document.getElementById('p-strain-code');if(el)el.value=strCode(sc);draft.strainCode=strCode(sc);">
+            </div>
+            <div class="fg">
+              <label class="flabel">Strain Code</label>
+              <input id="p-strain-code" class="fi mono" type="text" placeholder="APFR" maxlength="6" style="text-transform:uppercase;" autocomplete="off" oninput="draft.strainCode=this.value.toUpperCase();this.value=draft.strainCode;">
+            </div>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Crude Weight Used (g) <span class="req">*</span></label>
+          <input id="p-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${pkg?.weight||''}" inputmode="decimal">
+          ${srcBatch?`<div class="fhint">Available on tag: ${(srcBatch.outWeight||0).toFixed(2)}g</div>`:''}
+        </div>
+        ${pkg?`<div class="total-strip" style="margin-top:4px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text2);">CRUDE INPUT</span>
+          <span style="font-family:var(--mono);font-size:20px;font-weight:500;">${pkg.weight.toFixed(2)}<span style="font-size:12px;color:var(--text2)">g</span></span>
+        </div>`:''}`;
+      setTimeout(()=>{
+        document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')commitDiamPkg();});
+      },30);
+    } else {
+      // All other downstream routes — multi-package
+      c.innerHTML=`
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);">
+          Scan each source package tag and enter the batch ID it came from plus the weight being used.
+        </div>
+        <div class="fg">
+          <label class="flabel">Source METRC Tag # <span class="req">*</span></label>
+          <div class="sg">
+            <input id="p-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false">
+            <div class="scanbtn" onclick="openScanner('p-tag')">${barIcon()}</div>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Source Batch ID <span class="req">*</span></label>
+          <input id="p-batchid" class="fi mono" type="text" placeholder="e.g. APFR-CRUDE-050426" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:13px">
+          <div class="fhint" id="p-batchid-hint"></div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Weight Used (g) <span class="req">*</span></label>
+          <input id="p-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" inputmode="decimal">
+        </div>
+        <button class="btn bs" style="margin-bottom:12px;" onclick="addPkg(true)">+ Add Source Package</button>
+        <div class="div"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span class="sec" style="margin:0">Added (${draft.srcPkgs.length})</span>
+          <span style="font-family:var(--mono);font-size:13px;">Total: <strong>${total.toFixed(1)}g</strong></span>
+        </div>
+        <div class="plist">${draft.srcPkgs.length
+          ?draft.srcPkgs.map((p,i)=>`<div class="pitem">
+              <div style="flex:1;min-width:0;">
+                <div class="ptag">${p.tag}</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:1px;">${p.srcBatchId||''}</div>
+              </div>
+              <span class="pwt">${p.weight}g</span>
+              <span class="prm" onclick="rmPkg(${i})">✕</span></div>`).join('')
+          :`<p style="font-family:var(--mono);font-size:11px;color:var(--text3)">No packages added yet</p>`}
+        </div>`;
+      // Auto-lookup
+      setTimeout(()=>{
+        const tagEl=document.getElementById('p-tag');
+        const bidEl=document.getElementById('p-batchid');
+        const hint=document.getElementById('p-batchid-hint');
+        if(tagEl&&bidEl){
+          tagEl.addEventListener('input',()=>{
+            const val=tagEl.value.trim();
+            const match=batches.find(b=>b.outTag===val);
+            if(match){
+              bidEl.value=match.batchId;
+              const avail=(match.outWeight||0).toFixed(2);
+              const product=ROUTES[match.route]?.label||match.route;
+              if(hint)hint.innerHTML=`<span style="color:var(--accent)">✓ ${match.strain?match.strain+' · ':''}${product}</span> · Available: <strong>${avail}g</strong>`;
+            } else if(val.length===24){
+              if(hint)hint.innerHTML=`<span style="color:var(--text3)">Not found in saved batches — enter batch ID manually</span>`;
+            } else {if(hint)hint.textContent='';}
+          });
+          document.getElementById('p-wt')?.addEventListener('keydown',e=>{if(e.key==='Enter')addPkg(true);});
+        }
+      },30);
+    }
+  }
+  // Diamonds: fields are committed in next() — button is always enabled
+  // Other downstream: require at least one added package
+  const isDiamBtn=draft.route==='diamonds';
+  const stage1Btn=ROUTES[draft.route]?.stage===1;
+  const disabledAttr=(!isDiamBtn&&!stage1Btn&&draft.srcPkgs.length===0)?'disabled':'';
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${disabledAttr}>Continue →</button></div>`;
+}
+
+function onDiamTagInput(val){
+  const hint=document.getElementById('p-tag-hint');
+  const bidEl=document.getElementById('p-batchid');
+  const strainRow=document.getElementById('p-strain-row');
+  if(!hint)return;
+  const match=batches.find(b=>b.outTag===val.trim());
+  if(match){
+    if(bidEl&&!bidEl.value)bidEl.value=match.batchId;
+    hint.innerHTML=`<span style="color:var(--accent)">✓ ${match.strain||''} · ${ROUTES[match.route]?.label||''}</span> · Available: <strong>${(match.outWeight||0).toFixed(2)}g</strong>`;
+    const sc=document.getElementById('p-strain-code');
+    if(sc)sc.value=match.strainCode||'';
+    if(strainRow)strainRow.style.display='none';
+    draft.strain=match.strain||'';
+    draft.strainCode=match.strainCode||'';
+  } else if(val.length===24){
+    hint.innerHTML=`<span style="color:var(--amber)">Tag not found in saved batches — enter details manually</span>`;
+    if(strainRow)strainRow.style.display='block';
+  } else {
+    hint.textContent='Scan or enter crude tag';
+    if(strainRow)strainRow.style.display='none';
+  }
+}
+
+function commitDiamPkg(){
+  const tag=document.getElementById('p-tag')?.value.trim();
+  const wt=parseFloat(document.getElementById('p-wt')?.value)||0;
+  const bid=document.getElementById('p-batchid')?.value.trim();
+  if(!tag||tag.length!==24){toast('Tag must be 24 characters');return;}
+  if(!wt){toast('Enter crude weight used');return;}
+  if(!bid){toast('Enter source batch ID');return;}
+  const srcBatch=batches.find(b=>b.outTag===tag);
+  if(srcBatch){
+    draft.strain=srcBatch.strain||'';
+    draft.strainCode=srcBatch.strainCode||'';
+  } else {
+    // Use manually entered strain if tag not in saved batches
+    const manualName=document.getElementById('p-strain-name')?.value.trim();
+    const manualCode=document.getElementById('p-strain-code')?.value.trim().toUpperCase();
+    if(manualName)draft.strain=manualName;
+    if(manualCode)draft.strainCode=manualCode;
+  }
+  draft.srcPkgs=[{tag,weight:wt,srcBatchId:bid}];
+  draft.totalIn=wt;
+  renderWiz();
+}
+
+function addPkg(isDownstream){
+  const tag=document.getElementById('p-tag').value.trim();
+  const wt=parseFloat(document.getElementById('p-wt').value);
+  if(!tag){toast('Enter a tag number');return;}
+  if(tag.length!==24){toast('MA tags must be 24 characters');return;}
+  if(!wt||wt<=0){toast('Enter a valid weight');return;}
+  if(draft.srcPkgs.find(p=>p.tag===tag)){toast('Tag already added');return;}
+  const pkg={tag,weight:wt};
+  if(isDownstream){
+    const bid=document.getElementById('p-batchid')?.value.trim();
+    if(!bid){toast('Enter the source batch ID');return;}
+    pkg.srcBatchId=bid;
+  }
+  draft.srcPkgs.push(pkg);
+  document.getElementById('p-tag').value='';
+  document.getElementById('p-wt').value='';
+  if(isDownstream){const b=document.getElementById('p-batchid');if(b)b.value='';}
+  renderWiz();
+  setTimeout(()=>document.getElementById('p-tag')?.focus(),50);
+}
+function rmPkg(i){draft.srcPkgs.splice(i,1);renderWiz();}
+
+/* Step 4 — Output */
+function s4(c,a){
+  document.getElementById('hdr-title').textContent='Output';
+  const route=ROUTES[draft.route];
+  const isDiam=draft.route==='diamonds';
+  const isVape=VAPE_ROUTES.includes(draft.route);
+  const y=draft.outWeight?calcY(draft.outWeight,draft.totalIn):0;
+  const col=yColor(y,draft.route);
+
+  c.innerHTML=`
+    <div class="ydisplay">
+      <div class="ypct" id="ypct" style="color:${y>0?col:'var(--text3)'}">${y>0?y.toFixed(2)+'%':'—'}</div>
+      <div class="ysub">${route?.label} Yield</div>
+      <div class="yform" id="yform">${y>0?`${(draft.outWeight||0).toFixed(1)}g ÷ ${(draft.totalIn||0).toFixed(1)}g`:'Enter output weight below'}</div>
+    </div>
+    <div class="sec" style="margin-top:0;">Assign Product Tag</div>
+    <div class="fg">
+      <label class="flabel">${route?.label} Tag # <span class="req">*</span></label>
+      <div class="sg">
+        <input id="out-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" value="${draft.outTag}" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:12px" oninput="draft.outTag=this.value">
+        <div class="scanbtn" onclick="openScanner('out-tag')">${barIcon()}</div>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="flabel">${route?.label} Weight (g) <span class="req">*</span></label>
+      <input id="out-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${draft.outWeight||''}" inputmode="decimal" oninput="draft.outWeight=parseFloat(this.value)||0;liveY()">
+    </div>
+    ${isDiam?`
+      <div style="margin-top:4px;padding-top:14px;border-top:1px solid var(--border);">
+        <div class="sec" style="margin-top:0;">HTE Disposition</div>
+        <div class="fg">
+          <label class="flabel">HTE Weight (g) <span class="req">*</span></label>
+          <input id="hte-wt" class="fi" type="number" placeholder="0.0" step="0.01" min="0" value="${draft.hteWeight||''}" inputmode="decimal" oninput="draft.hteWeight=parseFloat(this.value)||0">
+          <div class="fhint">Total HTE produced from this extraction</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;margin-bottom:8px;" onclick="toggleHteNewTag()">
+          <div id="hte-checkbox" style="width:20px;height:20px;border:1.5px solid var(--border2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.15s;${draft.hteNewTag?'background:var(--accent);border-color:var(--accent);color:#0d1410;':''}">${draft.hteNewTag?'✓':''}</div>
+          <div>
+            <div style="font-size:13px;font-weight:500;">Assign HTE to new tag</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:1px;">Uncheck to keep HTE on crude tag</div>
+          </div>
+        </div>
+        <div id="hte-tag-fields" style="display:${draft.hteNewTag?'block':'none'};">
+          <div class="fg">
+            <label class="flabel">HTE Tag # <span class="req">*</span></label>
+            <div class="sg">
+              <input id="hte-tag" class="fi mono" type="text" placeholder="1A4000000000000000000001" maxlength="24" value="${draft.hteTag||''}" autocomplete="off" autocorrect="off" spellcheck="false" style="font-size:12px" oninput="draft.hteTag=this.value">
+              <div class="scanbtn" onclick="openScanner('hte-tag')">${barIcon()}</div>
+            </div>
+          </div>
+        </div>
+        ${!draft.hteNewTag?`
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Remaining on each crude tag</div>
+          ${draft.srcPkgs.map(p=>{
+            const srcBatch=batches.find(b=>b.outTag===p.tag);
+            const origWt=srcBatch?srcBatch.outWeight:0;
+            const unprocessed=Math.max(0,origWt-p.weight);
+            const hteShare=draft.hteWeight||0;
+            const remaining=(unprocessed+hteShare).toFixed(2);
+            return`<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:3px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;max-width:55%;">···${p.tag.slice(-8)}</span>
+              <span style="color:var(--text);">${remaining}g remaining</span>
+            </div>`;
+          }).join('')}
+          <div style="font-size:10px;color:var(--text3);margin-top:6px;">Unprocessed crude + HTE = remaining weight on tag</div>
+        </div>`:''}
+      </div>`:''}
+    ${isVape?`
+      <div class="fg">
+        <label class="flabel">Flavor / SKU Name${draft.route==='ld-vape'?' <span class="req">*</span>':''}</label>
+        <input id="out-flav" class="fi" type="text" placeholder="e.g. OG, Watermelon, Sour Apple" value="${draft.flavor}" oninput="draft.flavor=this.value${draft.route==='ld-vape'?';updateLdvBatchId()':''}">
+        ${draft.route==='ld-vape'?`<div class="fhint" id="ldv-bid-hint" style="margin-top:5px;">Batch ID preview: <span style="color:var(--accent);font-weight:500;">${draft.flavor?draft.flavor.replace(/[^a-zA-Z0-9]/g,'').substring(0,4).toUpperCase()+'-'+getRouteCode('ld-vape')+'-'+dateCode(draft.date):'enter flavor above'}</span></div>`:''}
+      </div>
+      <div class="sec">Additional Flavors / SKUs</div>
+      <div id="extra-list">${(draft.extraOuts||[]).map((o,i)=>`
+        <div class="pitem" style="margin-bottom:5px;">
+          <div style="flex:1;min-width:0;"><div style="font-family:var(--mono);font-size:11px;color:var(--text2)">${o.tag}</div><div style="font-size:12px;margin-top:1px">${o.flavor||'No flavor'} · ${o.weight}g</div></div>
+          <span class="prm" onclick="rmExtra(${i})">✕</span>
+        </div>`).join('')}</div>
+      <button class="addbtn" onclick="toggleFlavorForm()">+ Add Another Flavor / SKU</button>
+      <div id="flavor-form" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:8px;">
+        <div class="fg"><label class="flabel">Flavor / SKU</label><input id="xf-flav" class="fi" type="text" placeholder="Flavor name"></div>
+        <div class="fg"><label class="flabel">Tag #</label>
+          <div class="sg"><input id="xf-tag" class="fi mono" type="text" placeholder="1A400…" maxlength="24" style="font-size:12px">
+            <div class="scanbtn" onclick="openScanner('xf-tag')">${barIcon()}</div>
+          </div></div>
+        <div class="fg"><label class="flabel">Weight (g)</label><input id="xf-wt" class="fi" type="number" placeholder="0.0" step="0.01" inputmode="decimal"></div>
+        <button class="btn bs" style="padding:9px" onclick="addExtra()">Save</button>
+      </div>`:''}
+    <div class="fg" style="margin-top:10px;">
+      <label class="flabel">Notes (optional)</label>
+      <input id="out-notes" class="fi" type="text" placeholder="Run notes…" value="${draft.notes}" oninput="draft.notes=this.value">
+    </div>`;
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()">Review →</button></div>`;
+}
+
+function toggleHteNewTag(){
+  draft.hteNewTag=!draft.hteNewTag;
+  const cb=document.getElementById('hte-checkbox');
+  const fields=document.getElementById('hte-tag-fields');
+  if(cb){cb.style.background=draft.hteNewTag?'var(--accent)':'';cb.style.borderColor=draft.hteNewTag?'var(--accent)':'var(--border2)';cb.style.color=draft.hteNewTag?'#0d1410':'transparent';cb.textContent=draft.hteNewTag?'✓':'';}
+  if(fields)fields.style.display=draft.hteNewTag?'block':'none';
+  // Re-render crude remaining preview
+  s4(document.getElementById('wiz-content'),document.getElementById('wiz-actions'));
+}
+function liveY(){
+  const y=calcY(draft.outWeight,draft.totalIn);
+  const col=yColor(y,draft.route);
+  const p=document.getElementById('ypct');const f=document.getElementById('yform');
+  if(p){p.textContent=y.toFixed(2)+'%';p.style.color=col;}
+  if(f)f.textContent=`${(draft.outWeight||0).toFixed(1)}g ÷ ${(draft.totalIn||0).toFixed(1)}g`;
+}
+function updateLdvBatchId(){
+  const hint=document.getElementById('ldv-bid-hint');
+  if(!hint)return;
+  const flav=draft.flavor||'';
+  const sc=flav.replace(/[^a-zA-Z0-9]/g,'').substring(0,4).toUpperCase();
+  hint.innerHTML=`Batch ID preview: <span style="color:var(--accent);font-weight:500;">${sc?sc+'-'+getRouteCode('ld-vape')+'-'+dateCode(draft.date):'enter flavor above'}</span>`;
+}
+
+function toggleFlavorForm(){
+  const f=document.getElementById('flavor-form');
+  if(f)f.style.display=f.style.display==='none'?'block':'none';
+}
+function addExtra(){
+  const flav=document.getElementById('xf-flav')?.value.trim()||'';
+  const tag=document.getElementById('xf-tag')?.value.trim()||'';
+  const wt=parseFloat(document.getElementById('xf-wt')?.value)||0;
+  if(!tag||tag.length!==24){toast('Enter valid 24-char tag');return;}
+  if(!wt){toast('Enter weight');return;}
+  draft.extraOuts.push({flavor:flav,tag,weight:wt});
+  renderWiz();
+}
+function rmExtra(i){draft.extraOuts.splice(i,1);renderWiz();}
+
+/* Step 5 — Summary */
+function s5(c,a){
+  document.getElementById('hdr-title').textContent='Confirm & Save';
+  const route=ROUTES[draft.route];
+  const isDiam=draft.route==='diamonds';
+  const y=calcY(draft.outWeight,draft.totalIn);
+  const col=yColor(y,draft.route);
+  const bid=makeBatchId(draft.strainCode,draft.route,draft.date);
+  draft.batchId=bid;
+
+  // ── Standard summary rows ──
+  const srcRows=draft.srcPkgs.map(p=>`
+    <div class="srow"><span class="skey">Src Tag</span><span class="sval" style="font-size:10.5px">${p.tag}</span></div>
+    ${p.srcBatchId?`<div class="srow"><span class="skey">Src Batch</span><span class="sval" style="font-size:11px">${p.srcBatchId}</span></div>`:''}
+    <div class="srow"><span class="skey">Src Weight</span><span class="sval">${p.weight}g</span></div>`).join('');
+
+  const xRows=(draft.extraOuts||[]).map(o=>`
+    <div class="srow"><span class="skey">${o.flavor||'Output'} Tag</span><span class="sval" style="font-size:10.5px">${o.tag}</span></div>
+    <div class="srow"><span class="skey">${o.flavor||'Output'} Wt</span><span class="sval">${o.weight}g</span></div>`).join('');
+
+  // ── Diamonds-specific full breakdown ──
+  const diamondsSummary=isDiam?`
+    <div class="sec" style="margin-top:0;">Diamonds Output</div>
+    <div class="card nc" style="margin-bottom:10px;">
+      <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500;">${bid}</span></div>
+      <div class="srow"><span class="skey">Product Tag</span><span class="sval" style="font-size:11px;">${draft.outTag}</span></div>
+      <div class="srow"><span class="skey">Diamonds Weight</span><span class="sval">${(draft.outWeight||0).toFixed(2)}g</span></div>
+      <div class="srow"><span class="skey">Yield</span><span class="sval" style="color:${col};">${y.toFixed(2)}%</span></div>
+    </div>
+
+    ${draft.hteNewTag?`
+    <div class="sec">HTE Output — New Tag</div>
+    <div class="card nc" style="margin-bottom:10px;">
+      <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500;">${draft.hteBatchId}</span></div>
+      <div class="srow"><span class="skey">HTE Tag</span><span class="sval" style="font-size:11px;">${draft.hteTag}</span></div>
+      <div class="srow"><span class="skey">HTE Weight</span><span class="sval">${(draft.hteWeight||0).toFixed(2)}g</span></div>
+    </div>`:`
+    <div class="sec">HTE — Stays on Crude Tag(s)</div>
+    <div class="card nc" style="margin-bottom:10px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;padding:8px 0 6px;">HTE Weight: ${(draft.hteWeight||0).toFixed(2)}g · distributed across source tags</div>
+      ${draft.srcPkgs.map(p=>{
+        const srcBatch=batches.find(b=>b.outTag===p.tag);
+        const origWt=srcBatch?srcBatch.outWeight:0;
+        const unprocessed=Math.max(0,origWt-p.weight);
+        const remaining=(unprocessed+(draft.hteWeight||0)).toFixed(2);
+        const srcBid=p.srcBatchId||(srcBatch?srcBatch.batchId:'—');
+        return`<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+          <div class="srow" style="padding:2px 0;"><span class="skey">Source Batch</span><span class="sval" style="font-size:11px;color:var(--accent);">${srcBid}</span></div>
+          <div class="srow" style="padding:2px 0;"><span class="skey">Crude Tag</span><span class="sval" style="font-size:11px;">${p.tag}</span></div>
+          <div class="srow" style="padding:2px 0;"><span class="skey">Crude Used</span><span class="sval">${p.weight}g</span></div>
+          <div class="srow" style="padding:2px 0;border-bottom:none;"><span class="skey">Remaining on Tag</span><span class="sval" style="color:var(--amber);font-weight:500;">${remaining}g</span></div>
+        </div>`;
+      }).join('')}
+    </div>`}
+
+    <div class="sec">Run Info</div>
+    <div class="card nc">
+      <div class="srow"><span class="skey">Date</span><span class="sval">${fmtDate(draft.date)}</span></div>
+      <div class="srow"><span class="skey">Tech</span><span class="sval">${draft.tech}</span></div>
+      <div class="srow"><span class="skey">Total Crude In</span><span class="sval">${(draft.totalIn||0).toFixed(2)}g</span></div>
+      ${draft.notes?`<div class="srow"><span class="skey">Notes</span><span class="sval">${draft.notes}</span></div>`:''}
+    </div>`:null;
+
+  c.innerHTML=`
+    <div class="ydisplay">
+      <div class="ypct" style="color:${col}">${y.toFixed(2)}%</div>
+      <div class="ysub">${route?.label} Yield</div>
+      <div class="yform">${(draft.outWeight||0).toFixed(1)}g ÷ ${(draft.totalIn||0).toFixed(1)}g</div>
+    </div>
+    ${isDiam ? diamondsSummary : `
+    <div class="card nc">
+      <div class="srow"><span class="skey">Batch ID</span><span class="sval accent" style="font-size:13px;font-weight:500">${bid}</span></div>
+      ${draft.route!=='diamonds'?`<div class="srow"><span class="skey">Strain</span><span class="sval">${draft.strain}</span></div>`:''}
+      <div class="srow"><span class="skey">Product</span><span class="sval">${route?.label}</span></div>
+      ${draft.biomassType?`<div class="srow"><span class="skey">Biomass</span><span class="sval">${bLabel(draft.biomassType)}</span></div>`:''}
+      <div class="srow"><span class="skey">Date</span><span class="sval">${fmtDate(draft.date)}</span></div>
+      <div class="srow"><span class="skey">Tech</span><span class="sval">${draft.tech}</span></div>
+      ${srcRows}
+      <div class="srow"><span class="skey">Total Input</span><span class="sval">${(draft.totalIn||0).toFixed(1)}g</span></div>
+      <div class="srow"><span class="skey">Product Tag</span><span class="sval" style="font-size:10.5px">${draft.outTag}</span></div>
+      <div class="srow"><span class="skey">Product Weight</span><span class="sval">${(draft.outWeight||0).toFixed(1)}g</span></div>
+      ${draft.flavor?`<div class="srow"><span class="skey">Flavor</span><span class="sval">${draft.flavor}</span></div>`:''}
+      ${xRows}
+      ${draft.notes?`<div class="srow"><span class="skey">Notes</span><span class="sval">${draft.notes}</span></div>`:''}
+    </div>`}`;
+
+  a.innerHTML=`<div class="btns">
+    <button class="btn bp" onclick="saveBatch('purging')">Save · Start Purging</button>
+    <button class="btn bs" onclick="saveBatch('complete')">Save as Complete</button>
+    <button class="btn bg2" onclick="wStep=4;renderWiz()">← Edit Output</button>
+  </div>`;
+}
+
+/* Advance step with validation */
+function next(){
+  if(wStep===1&&!draft.route){toast('Select a product type');return;}
+  if(wStep===2){
+    const stage=ROUTES[draft.route]?.stage||1;
+    if(stage===1){
+      const str=document.getElementById('f-strain')?.value.trim();
+      const cod=document.getElementById('f-code')?.value.trim().toUpperCase();
+      const tch=document.getElementById('f-tech')?.value.trim();
+      const dt=document.getElementById('f-date')?.value;
+      if(!str){toast('Enter strain name');return;}
+      if(!cod||cod.length<2){toast('Enter strain code');return;}
+      if(!tch){toast('Enter tech name');return;}
+      // Biomass: inferred or selected
+      if(!BIOMASS_INFER[draft.route]){
+        const bio=document.getElementById('f-bio')?.value;
+        if(!bio){toast('Select biomass type');return;}
+        draft.biomassType=bio;
+      }
+      draft.strain=str;draft.strainCode=cod;draft.date=dt;draft.tech=tch;
+      if(!draft.biomassType&&BIOMASS_INFER[draft.route])draft.biomassType=BIOMASS_INFER[draft.route].v;
+      localStorage.setItem('hc_tech',tch);
+    } else {
+      const dt=document.getElementById('f-date')?.value;
+      const tch=document.getElementById('f-tech')?.value.trim();
+      if(!tch){toast('Enter tech name');return;}
+      draft.date=dt;draft.tech=tch;
+      // Only pick up strain fields if the form rendered them
+      const strDs=document.getElementById('f-strain-ds')?.value.trim();
+      const codDs=document.getElementById('f-code-ds')?.value.trim().toUpperCase();
+      if(strDs)draft.strain=strDs;
+      if(codDs)draft.strainCode=codDs;
+      localStorage.setItem('hc_tech',tch);
+    }
+  }
+  if(wStep===3){
+    if(draft.route==='diamonds'){
+      const tag=document.getElementById('p-tag')?.value.trim();
+      const wt=parseFloat(document.getElementById('p-wt')?.value)||0;
+      const bid=document.getElementById('p-batchid')?.value.trim();
+      if(!draft.srcPkgs.length){
+        if(!tag||tag.length!==24){toast('Enter a valid 24-character crude tag');return;}
+        if(!wt){toast('Enter crude weight used');return;}
+        if(!bid){toast('Enter source batch ID');return;}
+        const srcBatch=batches.find(b=>b.outTag===tag);
+        if(srcBatch){
+          draft.strain=srcBatch.strain||'';
+          draft.strainCode=srcBatch.strainCode||'';
+        } else {
+          const manualCode=document.getElementById('p-strain-code')?.value.trim().toUpperCase();
+          const manualName=document.getElementById('p-strain-name')?.value.trim();
+          if(!manualCode){toast('Enter strain code for this crude batch');return;}
+          draft.strainCode=manualCode;
+          if(manualName)draft.strain=manualName;
+        }
+        draft.srcPkgs=[{tag,weight:wt,srcBatchId:bid}];
+      }
+      draft.totalIn=draft.srcPkgs[0].weight;
+    } else {
+      if(!draft.srcPkgs.length){toast('Add at least one source package');return;}
+    }
+    draft.totalIn=draft.srcPkgs.reduce((s,p)=>s+parseFloat(p.weight||0),0);
+  }
+  if(wStep===4){
+    if(!draft.outTag||draft.outTag.length!==24){toast('Product tag must be 24 characters');return;}
+    if(!draft.outWeight||draft.outWeight<=0){toast('Enter output weight');return;}
+    // HTE fields
+    if(draft.route==='diamonds'){
+      const hteWt=parseFloat(document.getElementById('hte-wt')?.value)||0;
+      draft.hteWeight=hteWt;
+      if(draft.hteNewTag){
+        const hteTag=document.getElementById('hte-tag')?.value.trim();
+        if(!hteTag||hteTag.length!==24){toast('HTE tag must be 24 characters');return;}
+        draft.hteTag=hteTag;
+        // Use strain code from source crude batch
+        const srcBatch=batches.find(b=>b.outTag===draft.srcPkgs[0]?.tag);
+        const sc=draft.strainCode||srcBatch?.strainCode||'UNKN';
+        draft.hteBatchId=`${sc}-HTE-${dateCode(draft.date)}`;
+      }
+    }
+    // ld-vape: derive strain code from flavor
+    if(draft.route==='ld-vape'){
+      const flav=document.getElementById('out-flav')?.value.trim()||draft.flavor||'';
+      draft.flavor=flav;
+      if(flav)draft.strainCode=flav.replace(/[^a-zA-Z0-9]/g,'').substring(0,4).toUpperCase();
+    }
+  }
+  wStep++;renderWiz();
+}
+
+async function saveBatch(status='purging'){
+  const y=calcY(draft.outWeight,draft.totalIn);
+  const b={
+    id:uid(),
+    batchId:draft.batchId||makeBatchId(draft.strainCode,draft.route,draft.date),
+    route:draft.route,strain:draft.strain,strainCode:draft.strainCode,
+    biomassType:draft.biomassType,date:draft.date,tech:draft.tech,
+    srcPkgs:[...draft.srcPkgs],parentIds:[...draft.parentIds],
+    totalIn:draft.totalIn,outTag:draft.outTag,outWeight:draft.outWeight,
+    outWeightInitial:draft.outWeight,
+    hteWeight:draft.hteWeight,hteNewTag:draft.hteNewTag,
+    hteTag:draft.hteTag,hteBatchId:draft.hteBatchId,
+    flavor:draft.flavor,
+    extraOuts:[...(draft.extraOuts||[])],
+    yieldPct:y,notes:draft.notes,status,
+    createdAt:Date.now(),deviceId,facility:FACILITY_ID
+  };
+  await saveDoc(b);
+  if(status==='complete'){
+    document.getElementById('cn-bid').textContent=b.batchId;
+    document.getElementById('cn-tag').textContent=`Tag: ${b.outTag||'—'}`;
+    _completedBatchId=b.id;
+    document.getElementById('complete-notice').classList.add('vis');
+  } else {
+    toast('✓ Batch saved · In Progress');
+  }
+  goTo('dashboard');
+}
+
+/* ============================================================
+   SCANNER
+============================================================ */
+function barIcon(){return`<svg viewBox="0 0 24 24"><rect x="2" y="3" width="5" height="18" rx="1"/><rect x="9" y="3" width="2" height="18" rx="0.5"/><rect x="13" y="3" width="3" height="18" rx="0.5"/><rect x="18" y="3" width="4" height="18" rx="1"/></svg>`;}
+
+function openScanner(targetId){
+  scanCB=tag=>{
+    const el=document.getElementById(targetId);
+    if(el){el.value=tag;el.dispatchEvent(new Event('input'));}
+    if(targetId==='out-tag')draft.outTag=tag;
+    closeScanner();toast('Tag scanned ✓');
+  };
+  document.getElementById('scan-ov').classList.add('act');
+  startScanner();
+}
+
+async function startScanner(){
+  const video=document.getElementById('scan-video');
+  const hint=document.getElementById('scan-hint');
+
+  try{
+    hint.textContent='Starting camera…';
+
+    // ── Path A: Native BarcodeDetector (Chrome, Edge, Samsung Browser) ──
+    if('BarcodeDetector' in window){
+      scanStream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
+      });
+      video.srcObject=scanStream;
+      await new Promise(res=>{video.onloadedmetadata=res;});
+      await video.play();
+
+      const supported=await BarcodeDetector.getSupportedFormats();
+      const wanted=['code_128','code_39','qr_code'].filter(f=>supported.includes(f));
+      const detector=new BarcodeDetector({formats:wanted.length?wanted:supported});
+
+      hint.textContent='ALIGN BARCODE WITHIN FRAME';
+      scanActive=true;
+
+      const detect=async()=>{
+        if(!scanActive)return;
+        if(video.readyState>=2){
+          try{
+            const results=await detector.detect(video);
+            if(results.length>0&&scanCB){
+              scanActive=false;
+              scanCB(results[0].rawValue);
+              return;
+            }
+          }catch(e){}
+        }
+        if(scanActive)requestAnimationFrame(detect);
+      };
+      requestAnimationFrame(detect);
+
+    // ── Path B: ZXing (Safari/iOS, Firefox) ──
+    } else if(window.ZXing){
+      scanStream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
+      });
+      video.srcObject=scanStream;
+      await new Promise(res=>{video.onloadedmetadata=res;});
+      await video.play();
+
+      hint.textContent='ALIGN BARCODE WITHIN FRAME';
+      scanActive=true;
+
+      // decodeFromStream fires the callback continuously until reader.reset() is called
+      const reader=new ZXing.BrowserMultiFormatReader();
+      window._zxingInst=reader;
+      reader.decodeFromStream(scanStream,video,(result,err)=>{
+        if(result&&scanCB&&scanActive){
+          scanActive=false;
+          scanCB(result.getText());
+        }
+        // NotFoundException fires every frame when nothing detected — safe to ignore
+      });
+
+    // ── Path C: No scanner support ──
+    } else {
+      hint.textContent='BARCODE SCANNER NOT SUPPORTED — ENTER TAG MANUALLY';
+    }
+
+  }catch(e){
+    console.error('Scanner error:',e);
+    if(e.name==='NotAllowedError'){
+      hint.textContent='CAMERA PERMISSION DENIED — CHECK BROWSER SETTINGS AND TRY AGAIN';
+    } else {
+      hint.textContent='CAMERA ERROR — ENTER TAG MANUALLY';
+    }
+  }
+}
+
+function closeScanner(){
+  scanActive=false;
+  document.getElementById('scan-ov').classList.remove('act');
+  // Stop ZXing reader if it was used (Safari path)
+  if(window._zxingInst){try{window._zxingInst.reset();}catch(e){}window._zxingInst=null;}
+  // Release camera stream
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}
+  const v=document.getElementById('scan-video');
+  if(v){v.pause();v.srcObject=null;}
+  scanCB=null;
+}
+
+/* ============================================================
+   SEARCH
+============================================================ */
+function openSearch(){
+  document.getElementById('search-ov').classList.add('act');
+  document.getElementById('search-results').innerHTML=`<div class="search-empty">Enter batch ID or tag number<br>or scan a barcode</div>`;
+  document.getElementById('search-input').value='';
+  setTimeout(()=>document.getElementById('search-input')?.focus(),80);
+}
+function closeSearch(){document.getElementById('search-ov').classList.remove('act');}
+
+function openSearchScanner(){
+  scanCB=tag=>{
+    document.getElementById('search-input').value=tag;
+    runSearch(tag);
+  };
+  document.getElementById('scan-ov').classList.add('act');
+  startScanner();
+}
+
+function runSearch(q){
+  const raw=(q||'').trim();
+  const el=document.getElementById('search-results');
+  if(raw.length<2){
+    el.innerHTML=`<div class="search-empty">Enter batch ID or tag number<br>or scan a barcode</div>`;
+    return;
+  }
+  const term=raw.toUpperCase();
+
+  function matchesBatch(b){
+    // Exact or partial batch ID
+    if(b.batchId&&b.batchId.toUpperCase().includes(term))return true;
+    // Full tag (24 chars)
+    if(term.length===24){
+      if(b.outTag===raw)return true;
+      if((b.srcPkgs||[]).some(p=>p.tag===raw))return true;
+      if((b.extraOuts||[]).some(o=>o.tag===raw))return true;
+    }
+    // Last N digits of any tag (≤8 chars, all digits)
+    if(/^\d+$/.test(term)&&term.length<=8){
+      const tail=term;
+      if(b.outTag&&b.outTag.endsWith(tail))return true;
+      if((b.srcPkgs||[]).some(p=>p.tag&&p.tag.endsWith(tail)))return true;
+      if((b.extraOuts||[]).some(o=>o.tag&&o.tag.endsWith(tail)))return true;
+    }
+    return false;
+  }
+
+  const active=batches.filter(b=>!isComplete(b)&&matchesBatch(b));
+  const complete=batches.filter(b=>isComplete(b)&&matchesBatch(b));
+
+  if(!active.length&&!complete.length){
+    el.innerHTML=`<div class="search-empty">No batches found for "${raw}"</div>`;
+    return;
+  }
+
+  let html='';
+  if(active.length){
+    html+=`<div class="search-section-label">Active (${active.length})</div>`;
+    html+=active.map(b=>searchCard(b)).join('');
+  }
+  if(complete.length){
+    html+=`<div class="search-section-label">Completed (${complete.length})</div>`;
+    html+=complete.map(b=>searchCard(b)).join('');
+  }
+  el.innerHTML=html;
+}
+
+function searchCard(b){
+  const r=ROUTES[b.route];
+  const y=b.yieldPct||0;
+  const tagLine=b.outTag||'—';
+  return`<div class="card" onclick="closeSearch();viewBatch('${b.id}')">
+    <div class="card-row">
+      <div style="min-width:0;flex:1;">
+        <div style="font-family:var(--mono);font-size:13px;font-weight:500;">${b.batchId}</div>
+        <div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-top:1px;">${tagLine}</div>
+        <div class="card-sub" style="margin-top:3px;">${b.strain?b.strain+' · ':''}${r?.label||''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <span class="badge ${yBadge(y,b.route)}">${y.toFixed(1)}%</span>
+        <span class="badge ${stageBadgeCls(getBatchStatus(b))}" style="font-size:9px;">${getStageLabel(getBatchStatus(b),b.route)}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   DEVICE ID
+============================================================ */
+const deviceId=(()=>{
+  let id=localStorage.getItem('hc_device_id');
+  if(!id){
+    id='DEV-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+    localStorage.setItem('hc_device_id',id);
+  }
+  return id;
+})();
+
+/* ============================================================
+   SIDE NAV
+============================================================ */
+function openSideNav(){
+  document.getElementById('sidenav').classList.add('open');
+  document.getElementById('nav-backdrop').classList.add('open');
+}
+function closeSideNav(){
+  document.getElementById('sidenav').classList.remove('open');
+  document.getElementById('nav-backdrop').classList.remove('open');
+}
+function goToManager(){
+  window.location.href='../manager/';
+}
+async function doSignOut(){
+  await firebase.auth().signOut();
+  window.location.href='../';
+}
+
+/* ============================================================
+   STATUS CORRECTION
+============================================================ */
+let _statusSheetId=null;
+const STAGE_COLORS={
+  draft:'var(--text3)',
+  purging:'#ffb74d',
+  tagged:'#64b5f6',
+  partial:'#ffa726',
+  complete:'var(--accent)'
+};
+
+function openStatusSheet(id){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  _statusSheetId=id;
+  const cur=getBatchStatus(b);
+  const stages=getStages(b.route);
+  document.getElementById('status-sheet-stages').innerHTML=stages.map(s=>`
+    <div class="stage-chip ${s===cur?'cur':''}" onclick="applyStatusOverride('${s}')">
+      <div class="stage-chip-dot" style="background:${STAGE_COLORS[s]||'var(--text3)'}"></div>
+      <span style="font-size:14px;flex:1;">${getStageLabel(s,b.route)}</span>
+      ${s===cur?'<span style="font-size:11px;color:var(--accent);font-family:var(--mono);">current</span>':''}
+    </div>`).join('');
+  document.getElementById('status-sheet').classList.add('vis');
+}
+
+function closeStatusSheet(){
+  document.getElementById('status-sheet').classList.remove('vis');
+  _statusSheetId=null;
+}
+
+async function applyStatusOverride(newStatus){
+  const id=_statusSheetId;
+  if(!id)return;
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const prev=getBatchStatus(b);
+  if(prev===newStatus){closeStatusSheet();return;}
+  b.status=newStatus;
+  if(!b.statusHistory)b.statusHistory=[];
+  b.statusHistory.push({
+    from:prev,to:newStatus,ts:Date.now(),
+    uid:currentUser?.uid||'',name:currentUserData?.name||currentUser?.email||'',
+    corrected:true
+  });
+  if(newStatus==='complete')b.completedAt=Date.now();
+  else delete b.completedAt;
+  await saveDoc(b);
+  closeStatusSheet();
+  viewBatch(id);
+  toast('Status updated');
+}
+
+/* ============================================================
+   EXTRACTION LOG
+============================================================ */
+let _extUnsubscribe=null, _extRunNum=1;
+
+function tagShort(tag){ return tag?('…'+tag.slice(-8)):'—'; }
+
+function startExtRunListener(){
+  if(_extUnsubscribe)_extUnsubscribe();
+  _extUnsubscribe=db.collection('extraction_runs')
+    .where('facilityId','==',FACILITY_ID)
+    .orderBy('startedAt','desc')
+    .limit(100)
+    .onSnapshot(snap=>{
+      extRuns=snap.docs.map(d=>({id:d.id,...d.data()}));
+      const active=extRuns.find(r=>!r.endedAt);
+      if(active){
+        if(_activeRunId!==active.id){ _activeRunId=active.id; startTimerTick(); }
+      } else {
+        if(_activeRunId){ _activeRunId=null; stopTimerTick(); }
+      }
+      if(curScreen==='extraction-log')renderExtLog();
+      if(curScreen==='dashboard')renderDash();
+    },err=>{ console.error('extraction_runs listener error:',err); });
+}
+
+function startTimerTick(){
+  stopTimerTick();
+  _timerInterval=setInterval(()=>{ if(curScreen==='extraction-log')updateTimerDisplay(); },1000);
+}
+function stopTimerTick(){
+  if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null;}
+}
+
+function fmtDuration(sec){
+  const h=Math.floor(sec/3600);
+  const m=Math.floor((sec%3600)/60);
+  const s=sec%60;
+  if(h>0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function getElapsedSec(startedAt){ return Math.floor((Date.now()-startedAt)/1000); }
+
+function updateTimerDisplay(){
+  const el=document.getElementById('ext-timer-val');
+  if(!el)return;
+  const run=extRuns.find(r=>r.id===_activeRunId);
+  if(run&&!run.endedAt) el.textContent=fmtDuration(getElapsedSec(run.startedAt));
+}
+
+function renderExtLog(){
+  const el=document.getElementById('ext-log-content');
+  if(!el)return;
+
+  const active=extRuns.find(r=>!r.endedAt);
+  const past=extRuns.filter(r=>!!r.endedAt);
+  let html='';
+
+  // ── Active run ──
+  if(active){
+    const elapsed=getElapsedSec(active.startedAt);
+    const isRun1=(active.runNumber||1)===1;
+    const runLabel=`Run ${active.runNumber||1}${isRun1?' of 2':''}`;
+    const run1Done=isRun1?null:extRuns.find(r=>r.sourceTag===active.sourceTag&&(r.runNumber||1)===1&&r.endedAt);
+    const startedStr=new Date(active.startedAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    html+=`<div class="ext-active-card">
+      <div class="ext-run-status-row">
+        <div class="ext-status-dot"></div>
+        <span class="ext-status-label">In Progress · ${runLabel}</span>
+        <span class="ext-run-timer" id="ext-timer-val">${fmtDuration(elapsed)}</span>
+      </div>
+      <div class="ext-run-strain">${active.strain||'—'}</div>
+      <div class="ext-run-tag">${tagShort(active.sourceTag)} · Started ${startedStr}</div>
+      ${run1Done?`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:6px;">Run 1 recorded: ${fmtDuration(run1Done.durationSec)}</div>`:''}
+      ${active.notes?`<div style="font-size:12px;color:var(--text2);margin-top:6px;">${active.notes}</div>`:''}
+      ${isRun1?`
+      <div class="ext-btn-row">
+        <button class="btn bp" onclick="beginRun2('${active.id}')">Begin Run 2</button>
+        <button class="btn bg2" onclick="stopExtRunPrompt('${active.id}')">Stop Run 1</button>
+      </div>`:`
+      <div class="ext-btn-row">
+        <button class="btn bp" onclick="stopExtRunPrompt('${active.id}')">Stop &amp; Record Run 2</button>
+      </div>`}
+    </div>`;
+  } else {
+    html+=`<div class="ext-idle-card">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:6px;">Machine Idle</div>
+      <div style="font-size:15px;color:var(--text2);margin-bottom:16px;">No active extraction</div>
+      <button class="btn bp" style="width:100%;" onclick="openExtStartModal()">Start Extraction Run</button>
+    </div>`;
+  }
+
+  el.innerHTML=html;
+}
+
+function setExtRunNum(n){
+  _extRunNum=n;
+  document.getElementById('ext-run1-btn').className=`btn ${n===1?'bp':'bg2'}`;
+  document.getElementById('ext-run2-btn').className=`btn ${n===2?'bp':'bg2'}`;
+}
+
+function openExtStartModal(){
+  // Default run # — suggest 2 if the most recent batch for the last-used tag already has run 1
+  setExtRunNum(1);
+  document.getElementById('ext-src-tag').value='';
+  document.getElementById('ext-strain').value='';
+  document.getElementById('ext-notes').value='';
+  buildMatDropdown();
+  document.getElementById('ext-start-modal').classList.add('vis');
+  setTimeout(()=>document.getElementById('ext-src-tag')?.focus(),80);
+}
+
+function closeExtStartModal(){
+  document.getElementById('ext-start-modal').classList.remove('vis');
+}
+
+function scanExtSourceTag(){
+  // Temporarily hide modal, open scanner; restore modal after scan
+  document.getElementById('ext-start-modal').classList.remove('vis');
+  scanCB=tag=>{
+    closeScanner();
+    document.getElementById('ext-src-tag').value=tag;
+    // Auto-suggest run # based on existing runs for this tag
+    const existingRuns=extRuns.filter(r=>r.sourceTag===tag&&r.endedAt);
+    const hasRun1=existingRuns.some(r=>(r.runNumber||1)===1);
+    setExtRunNum(hasRun1?2:1);
+    document.getElementById('ext-start-modal').classList.add('vis');
+    setTimeout(()=>document.getElementById('ext-strain')?.focus(),120);
+  };
+  document.getElementById('scan-ov').classList.add('act');
+  startScanner();
+}
+
+async function startExtRun(){
+  const sourceTag=document.getElementById('ext-src-tag').value.trim();
+  const strain=document.getElementById('ext-strain').value.trim();
+  const notes=document.getElementById('ext-notes').value.trim();
+  const materialType=document.getElementById('ext-material')?.value||'';
+  if(!sourceTag){toast('Scan or enter a source tag');return;}
+  if(!strain){toast('Enter strain name');return;}
+  if(extRuns.find(r=>!r.endedAt)){toast('An extraction is already in progress');closeExtStartModal();return;}
+  const btn=document.getElementById('ext-start-btn');
+  btn.disabled=true;
+  try{
+    await db.collection('extraction_runs').add({
+      facilityId:FACILITY_ID,
+      sourceTag,
+      strain,
+      materialType,
+      runNumber:_extRunNum,
+      notes:notes||'',
+      techUid:currentUser?.uid||'',
+      techName:currentUserData?.name||currentUser?.email||'',
+      startedAt:Date.now(),
+      endedAt:null,
+      durationSec:null
+    });
+    closeExtStartModal();
+    goTo('extraction-log');
+    toast(`Run ${_extRunNum} started ▶`);
+  }catch(e){
+    console.error('startExtRun error:',e);
+    toast('⚠ Could not start run');
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+async function beginRun2(runId){
+  const run=extRuns.find(r=>r.id===runId);
+  if(!run||run.endedAt)return;
+  const now=Date.now();
+  const durationSec=Math.floor((now-run.startedAt)/1000);
+  try{
+    await db.collection('extraction_runs').doc(runId).update({endedAt:now,durationSec});
+    await db.collection('extraction_runs').add({
+      facilityId:FACILITY_ID,
+      sourceTag:run.sourceTag,
+      strain:run.strain,
+      runNumber:2,
+      notes:'',
+      techUid:currentUser?.uid||'',
+      techName:currentUserData?.name||currentUser?.email||'',
+      startedAt:now,
+      endedAt:null,
+      durationSec:null
+    });
+    toast(`Run 1: ${fmtDuration(durationSec)} · Run 2 started ▶`);
+  }catch(e){
+    console.error('beginRun2 error:',e);
+    toast('⚠ Could not begin Run 2 — check connection');
+  }
+}
+
+function stopExtRunPrompt(runId){
+  const run=extRuns.find(r=>r.id===runId);
+  if(!run)return;
+  const elapsed=fmtDuration(getElapsedSec(run.startedAt));
+  const label=`${run.strain||'—'} · Run ${run.runNumber||1}`;
+  showConfirm(
+    `Stop extraction? Record ${elapsed} for ${label}.`,
+    ()=>stopExtRun(runId),
+    'Stop & Save',
+    'bp'
+  );
+}
+
+async function stopExtRun(runId){
+  const run=extRuns.find(r=>r.id===runId);
+  if(!run)return;
+  const endedAt=Date.now();
+  const durationSec=Math.floor((endedAt-run.startedAt)/1000);
+  try{
+    await db.collection('extraction_runs').doc(runId).update({endedAt,durationSec});
+    toast(`Run ${run.runNumber||1} complete · ${fmtDuration(durationSec)}`);
+  }catch(e){
+    console.error('stopExtRun error:',e);
+    toast('⚠ Could not stop run');
+  }
+}
+
+/* ============================================================
+   NOTIFICATIONS
+============================================================ */
+function startNotifListener(){
+  if(_notifUnsubscribe)_notifUnsubscribe();
+  _notifUnsubscribe=db.collection('notifications')
+    .where('facilityId','==',FACILITY_ID)
+    .orderBy('createdAt','desc')
+    .limit(80)
+    .onSnapshot(snap=>{
+      notifications=snap.docs.map(d=>({id:d.id,...d.data()}));
+      renderNotifBell();
+      if(curScreen==='extraction-log')renderExtLog();
+    },err=>console.error('notifications listener error:',err));
+}
+
+function renderNotifBell(){
+  const uid=currentUser?.uid||'';
+  const unread=notifications.filter(n=>n.targetRole==='tech'&&!(n.readBy?.[uid])).length;
+  const badge=document.getElementById('notif-badge');
+  if(!badge)return;
+  badge.textContent=unread||'';
+  badge.hidden=!unread;
+}
+
+function openNotifPanel(){
+  renderNotifPanel();
+  document.getElementById('notif-panel').classList.add('vis');
+}
+function closeNotifPanel(){
+  document.getElementById('notif-panel').classList.remove('vis');
+}
+function renderNotifPanel(){
+  const uid=currentUser?.uid||'';
+  const techNotifs=notifications.filter(n=>n.targetRole==='tech');
+  const list=document.getElementById('notif-list');
+  if(!list)return;
+  if(!techNotifs.length){
+    list.innerHTML=`<div class="notif-empty">No notifications</div>`;
+    return;
+  }
+  list.innerHTML=techNotifs.map(n=>{
+    const unread=!(n.readBy?.[uid]);
+    const ts=new Date(n.createdAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    let title='',sub='',actions='';
+    if(n.type==='output_tag_needed'){
+      title=`${n.strain||tagShort(n.sourceTag)} — Ready to Process`;
+      sub=`${tagShort(n.sourceTag||'')} · ${ts}`;
+      actions=`<button class="btn bg2" style="font-size:12px;padding:5px 10px;" onclick="closeNotifPanel();openOutputTagModal('${(n.sourceTag||'').replace(/'/g,"\\'")}')">Assign Output Tag →</button>
+               <button class="btn bg2" style="font-size:12px;padding:5px 10px;" onclick="markNotifRead('${n.id}')">Dismiss</button>`;
+    } else if(n.type==='output_tag_assigned'){
+      title=`Output tag assigned`;
+      sub=`${tagShort(n.outputTag||'')} · ${n.assignedByName||'Tech'} · ${ts}`;
+    }
+    return `<div class="notif-item${unread?' unread':''}">
+      <div class="notif-item-title">${title}</div>
+      <div class="notif-item-sub">${sub}</div>
+      ${actions?`<div class="notif-item-actions">${actions}</div>`:''}
+    </div>`;
+  }).join('');
+}
+async function markNotifRead(id){
+  const uid=currentUser?.uid||'';
+  if(!uid)return;
+  try{await db.collection('notifications').doc(id).update({[`readBy.${uid}`]:Date.now()});}
+  catch(e){console.error('markNotifRead:',e);}
+}
+
+function checkAndCreateOffGasNotifs(){
+  if(!currentUser)return;
+  const offGasHours=settings.offGasHours||12;
+  const now=Date.now();
+  const groups=new Map();
+  extRuns.filter(r=>r.endedAt).forEach(r=>{
+    const key=r.sourceTag||r.id;
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(r);
+  });
+  groups.forEach((runs,sourceTag)=>{
+    runs.sort((a,b)=>(b.runNumber||1)-(a.runNumber||1));
+    const lastRun=runs[0];
+    if(lastRun.outputTag)return;
+    const offGasReadyAt=(lastRun.endedAt||0)+offGasHours*3600000;
+    if(now<offGasReadyAt)return;
+    const existing=notifications.find(n=>n.sourceTag===sourceTag&&n.type==='output_tag_needed');
+    if(existing)return;
+    db.collection('notifications').add({
+      facilityId:FACILITY_ID,
+      type:'output_tag_needed',
+      targetRole:'tech',
+      sourceTag,
+      strain:lastRun.strain||'',
+      runIds:runs.map(r=>r.id),
+      createdAt:Date.now(),
+      readBy:{}
+    }).catch(e=>console.error('create notif error:',e));
+  });
+}
+
+/* Output tag assignment */
+let _outputTagSource=null;
+
+function openOutputTagModal(sourceTag){
+  _outputTagSource=sourceTag;
+  const el=document.getElementById('otag-src');
+  if(el)el.textContent=tagShort(sourceTag);
+  document.getElementById('otag-tag').value='';
+  document.getElementById('otag-weight').value='';
+
+  // Off-gas readiness check
+  const offGasHours=settings.offGasHours||12;
+  const now3=Date.now();
+  const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt&&!r.outputTag);
+  const banner=document.getElementById('otag-offgas-banner');
+  const submitBtn=document.getElementById('otag-submit-btn');
+  if(runs.length){
+    const lastRun=runs.sort((a,b)=>b.endedAt-a.endedAt)[0];
+    const readyAt=(lastRun.endedAt||0)+offGasHours*3600000;
+    const isReady=now3>=readyAt;
+    if(!isReady){
+      const remainH=Math.ceil((readyAt-now3)/3600000);
+      const readyTime=new Date(readyAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      banner.textContent=`⏱ Still off-gassing — ready in ~${remainH}h (est. ${readyTime})`;
+      banner.hidden=false;
+      const overrideRow=document.getElementById('otag-override-row');
+      const overrideCb=document.getElementById('otag-override');
+      overrideRow.hidden=false;
+      overrideCb.checked=false;
+      submitBtn.disabled=true;
+    } else {
+      banner.hidden=true;
+      document.getElementById('otag-override-row').hidden=true;
+      document.getElementById('otag-override').checked=false;
+      submitBtn.disabled=false;
+    }
+  } else {
+    banner.hidden=true;
+    submitBtn.disabled=false;
+  }
+
+  // Generate suggested batch ID from extraction run strain
+  const bidEl=document.getElementById('otag-batchid');
+  if(bidEl){
+    const allRuns=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt);
+    const refRun=allRuns.sort((a,b)=>(b.endedAt||0)-(a.endedAt||0))[0];
+    const strain=refRun?.strain||'';
+    const sc=strCode(strain);
+    const today=todayStr();
+    const suggestedId=sc?makeBatchId(sc,'crude',today):'';
+    bidEl.value=suggestedId;
+    // If batch ID already exists for this tag, show it
+    const existingBatch=batches.find(b=>b.outTag===sourceTag||
+      allRuns.some(r=>r.outputTag&&b.outTag===r.outputTag));
+    if(existingBatch){
+      bidEl.value=existingBatch.batchId;
+      document.getElementById('otag-bid-hint').textContent='Existing batch · edit if needed';
+    } else {
+      document.getElementById('otag-bid-hint').textContent='Auto-generated · edit if needed';
+    }
+  }
+
+  document.getElementById('output-tag-modal').classList.add('vis');
+  setTimeout(()=>{ if(!submitBtn.disabled) document.getElementById('otag-tag')?.focus(); },80);
+}
+function toggleOffGasOverride(checked){
+  document.getElementById('otag-submit-btn').disabled=!checked;
+  if(checked) setTimeout(()=>document.getElementById('otag-tag')?.focus(),40);
+}
+function scanOtagOutputTag(){
+  document.getElementById('output-tag-modal').classList.remove('vis');
+  scanCB=tag=>{
+    closeScanner();
+    document.getElementById('otag-tag').value=tag.toUpperCase();
+    document.getElementById('output-tag-modal').classList.add('vis');
+    setTimeout(()=>document.getElementById('otag-weight')?.focus(),120);
+  };
+  document.getElementById('scan-ov').classList.add('act');
+  startScanner();
+}
+function closeOutputTagModal(){
+  document.getElementById('output-tag-modal').classList.remove('vis');
+  document.getElementById('otag-offgas-banner').hidden=true;
+  document.getElementById('otag-override-row').hidden=true;
+  document.getElementById('otag-override').checked=false;
+  document.getElementById('otag-batchid').value='';
+  _outputTagSource=null;
+}
+async function submitOutputTag(){
+  const sourceTag=_outputTagSource;
+  if(!sourceTag)return;
+  const outputTag=document.getElementById('otag-tag').value.trim().toUpperCase();
+  const outputWeight=parseFloat(document.getElementById('otag-weight').value)||0;
+  const batchId=document.getElementById('otag-batchid').value.trim().toUpperCase();
+  if(!outputTag){toast('Enter the output METRC tag');return;}
+  if(!outputWeight){toast('Enter the output weight');return;}
+  if(!batchId){toast('Enter a batch ID');return;}
+  const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt);
+  if(!runs.length)return;
+  runs.sort((a,b)=>(b.runNumber||1)-(a.runNumber||1));
+  const lastRun=runs[0];
+  const techName=currentUserData?.name||currentUser?.email||'';
+  const btn=document.getElementById('otag-submit-btn');
+  btn.disabled=true;
+  try{
+    // 1. Update extraction run with output tag
+    await db.collection('extraction_runs').doc(lastRun.id).update({
+      outputTag,
+      outputWeight,
+      batchId,
+      outputTagAssignedAt:Date.now(),
+      outputTaggedByName:techName
+    });
+
+    // 2. Create crude batch record if one doesn't already exist for this batchId
+    const existing=batches.find(b=>b.batchId===batchId||b.outTag===outputTag);
+    if(!existing){
+      const totalIn=runs.reduce((s,r)=>s,0); // weight tracked via extraction runs
+      const sc=strCode(lastRun.strain||'');
+      const newBatch={
+        id:uid(),
+        batchId,
+        route:'crude',
+        strain:lastRun.strain||'',
+        strainCode:sc,
+        biomassType:'',
+        date:todayStr(),
+        tech:techName,
+        srcPkgs:[{tag:sourceTag,weight:0}],
+        parentIds:[],
+        totalIn:0,
+        outTag:outputTag,
+        outWeight:outputWeight,
+        outWeightInitial:outputWeight,
+        hteWeight:0,hteNewTag:false,hteTag:'',hteBatchId:'',
+        flavor:'',extraOuts:[],
+        yieldPct:0,
+        notes:`Created from extraction run · Source: ${sourceTag}`,
+        status:'purging',
+        createdAt:Date.now(),
+        deviceId,
+        facility:FACILITY_ID,
+        fromExtraction:true,
+        sourceExtTag:sourceTag
+      };
+      await saveDoc(newBatch);
+    }
+
+    // 3. Dismiss pending tech notifications for this source tag
+    const myUid=currentUser?.uid||'';
+    const pending=notifications.filter(n=>n.sourceTag===sourceTag&&n.type==='output_tag_needed');
+    await Promise.all(pending.map(n=>
+      db.collection('notifications').doc(n.id).update({[`readBy.${myUid}`]:Date.now()})
+    ));
+
+    // 4. Notify management
+    await db.collection('notifications').add({
+      facilityId:FACILITY_ID,
+      type:'output_tag_assigned',
+      targetRole:'manager',
+      sourceTag,
+      outputTag,
+      outputWeight,
+      batchId,
+      strain:lastRun.strain||'',
+      assignedByName:techName,
+      assignedAt:Date.now(),
+      createdAt:Date.now(),
+      readBy:{}
+    });
+
+    closeOutputTagModal();
+    toast(`✓ ${batchId} created · ${outputWeight}g`);
+  }catch(e){
+    console.error('submitOutputTag error:',e);
+    toast('⚠ Could not save — check connection');
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+/* ============================================================
+   MATERIAL TYPES
+============================================================ */
+const DEFAULT_MAT_TYPES=['Fresh Frozen','Cured Nug','Cured Trim'];
+
+function getMatTypes(){
+  const stored=settings.materialTypes;
+  if(Array.isArray(stored)&&stored.length) return stored;
+  return [...DEFAULT_MAT_TYPES];
+}
+
+function saveMatTypes(types){
+  settings.materialTypes=types;
+  saveSettings();
+}
+
+function buildMatDropdown(){
+  const sel=document.getElementById('ext-material');
+  if(!sel)return;
+  const types=getMatTypes();
+  const cur=sel.value;
+  sel.innerHTML=types.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
+  if(cur&&types.includes(cur)) sel.value=cur;
+  // Managers see ⚙ MANAGE; techs see ＋ ADD (same modal, edit/delete hidden for techs)
+  const mgBtn=document.getElementById('ext-mat-manage-btn');
+  if(mgBtn){
+    const isManager=(currentUserData?.role==='manager');
+    mgBtn.hidden=false;
+    mgBtn.textContent=isManager?'⚙ MANAGE':'＋ ADD TYPE';
+  }
+}
+
+
+// ── Manager-only: manage sheet ──
+function openMatManager(){
+  renderMatManagerList();
+  document.getElementById('mat-manager-modal').classList.add('vis');
+  setTimeout(()=>document.getElementById('mat-mgr-new')?.focus(),80);
+}
+function closeMatManager(){
+  document.getElementById('mat-manager-modal').classList.remove('vis');
+  document.getElementById('mat-mgr-new').value='';
+  buildMatDropdown(); // refresh dropdown after any changes
+}
+
+function renderMatManagerList(){
+  const isManager=(currentUserData?.role==='manager');
+  const types=getMatTypes();
+  const el=document.getElementById('mat-manager-list');
+  if(!types.length){
+    el.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);">No types yet</div>`;
+    return;
+  }
+  el.innerHTML=types.map((t,i)=>`
+    <div id="mat-row-${i}" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <input class="fi" id="mat-inp-${i}" type="text" value="${t.replace(/"/g,'&quot;')}" style="flex:1;font-size:13px;" ${isManager?'':'readonly'}>
+      ${isManager?`
+        <button onclick="saveMatEdit(${i})" title="Save" style="width:34px;height:34px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--accent);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✓</button>
+        <button onclick="deleteMat(${i})" title="Delete" style="width:34px;height:34px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--red);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+      `:''}
+    </div>`).join('');
+}
+
+function saveMatEdit(i){
+  const inp=document.getElementById(`mat-inp-${i}`);
+  const name=inp?.value.trim();
+  if(!name){toast('Name cannot be empty');return;}
+  const types=getMatTypes();
+  if(types.some((t,j)=>j!==i&&t.toLowerCase()===name.toLowerCase())){toast('Name already exists');return;}
+  types[i]=name;
+  saveMatTypes(types);
+  renderMatManagerList();
+  toast('Updated');
+}
+
+function deleteMat(i){
+  const types=getMatTypes();
+  const name=types[i];
+  showConfirm(`Remove "${name}" from material types?`,()=>{
+    const updated=types.filter((_,j)=>j!==i);
+    saveMatTypes(updated);
+    renderMatManagerList();
+    toast(`Removed: ${name}`);
+  },'Remove','bdr');
+}
+
+function saveMgrNewType(){
+  const inp=document.getElementById('mat-mgr-new');
+  const name=inp?.value.trim();
+  if(!name){toast('Enter a type name');return;}
+  const types=getMatTypes();
+  if(types.some(t=>t.toLowerCase()===name.toLowerCase())){toast('Already exists');return;}
+  types.push(name);
+  saveMatTypes(types);
+  renderMatManagerList();
+  inp.value='';
+  toast(`Added: ${name}`);
+}
+
+/* ============================================================
+   BOOT
+============================================================ */
+function bootApp(){
+  try{settings=JSON.parse(localStorage.getItem('hc_settings')||'{}');}catch(e){settings={};}
+  resetDraft();
+  goTo('dashboard');
+  try{startListener();}catch(e){console.error('Firestore listener failed:',e);toast('⚠ Could not connect to database');}
+  try{startExtRunListener();}catch(e){console.error('extraction_runs listener failed:',e);}
+  try{startNotifListener();}catch(e){console.error('notifications listener failed:',e);}
+}
+
+/* ============================================================
+   INIT — Firebase Auth guard
+============================================================ */
+const auth=firebase.auth();
+let currentUser=null, currentUserData=null;
+
+auth.onAuthStateChanged(async user=>{
+  if(!user){
+    window.location.href='../';
+    return;
+  }
+  let snap;
+  try{ snap=await db.collection('users').doc(user.uid).get(); }
+  catch(e){ console.error('users lookup failed',e); await auth.signOut(); window.location.href='../'; return; }
+
+  const data=snap.data();
+  if(!data){ await auth.signOut(); window.location.href='../'; return; }
+  if(data.role!=='tech' && data.role!=='manager'){ await auth.signOut(); window.location.href='../'; return; }
+
+  currentUser=user;
+  currentUserData=data;
+
+  // Populate sidenav footer email
+  const emailEl=document.getElementById('snav-email');
+  if(emailEl) emailEl.textContent=user.email||data.name||'Tech';
+
+  // Show Manager View link in account menu for managers
+  const mgrLink = document.getElementById('user-menu-manager');
+  if(mgrLink) mgrLink.hidden = data.role !== 'manager';
+
+  // Hide loading overlay and boot
+  document.getElementById('auth-loading').style.display='none';
+  bootApp();
+});
+
+// Delegated listener for tap-cards — handles onclick regardless of when cards are injected
+document.getElementById('screens').addEventListener('click',function(e){
+  const card=e.target.closest('[data-action="open-output-tag"]');
+  if(card){
+    const tag=card.dataset.tag;
+    if(tag) openOutputTagModal(tag);
+  }
+});
+
+</script>
+</html>
