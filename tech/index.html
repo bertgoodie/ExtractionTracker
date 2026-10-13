@@ -328,7 +328,7 @@ select.fi option{background:#1a2420;}
 .bstatus-partial{background:rgba(255,152,0,0.14);color:#ffa726;border:1px solid rgba(255,152,0,0.32);}
 .bstatus-complete{background:rgba(76,175,80,0.14);color:#81c784;border:1px solid rgba(76,175,80,0.28);}
 
-/* ── Extraction Log ── */
+/* ── Extraction screen ── */
 .ext-timer-display{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rl);padding:20px;text-align:center;margin-bottom:10px;}
 .ext-timer-val{font-family:var(--mono);font-size:44px;font-weight:500;line-height:1;letter-spacing:0.04em;color:var(--accent);}
 .ext-timer-label{font-size:11px;color:var(--text2);margin-top:4px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;}
@@ -341,6 +341,14 @@ select.fi option{background:#1a2420;}
 .ext-active-run{border-color:var(--accent);background:rgba(76,175,80,0.04);}
 .ext-start-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
 .ext-start-modal.vis{display:flex;}
+
+/* ── Status correction sheet ── */
+.status-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+.status-sheet.vis{display:flex;}
+.stage-chip{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:var(--r);border:1px solid var(--border2);cursor:pointer;transition:background 0.12s,border-color 0.12s;margin-bottom:8px;}
+.stage-chip:hover{background:var(--bg3);}
+.stage-chip.cur{border-color:var(--accent);background:var(--adim);}
+.stage-chip-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 
 </style>
 </head>
@@ -439,7 +447,7 @@ select.fi option{background:#1a2420;}
     </div>
     <div class="snav-item" id="ntab-extraction-log" onclick="goTo('extraction-log');closeSideNav()">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
-      Extraction Log
+      Extraction
     </div>
     <div class="snav-item" id="ntab-history" onclick="goTo('history');closeSideNav()">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 15.5"/></svg>
@@ -563,6 +571,17 @@ select.fi option{background:#1a2420;}
     <div class="confirm-btns">
       <button class="btn bg2" onclick="closeExtStartModal()">Cancel</button>
       <button class="btn bp" id="ext-start-btn" onclick="startExtRun()">▶ Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- Status correction sheet -->
+<div class="status-sheet" id="status-sheet">
+  <div class="confirm-box" style="max-width:400px;width:100%;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;">Set Batch Status</div>
+    <div id="status-sheet-stages"></div>
+    <div class="confirm-btns" style="margin-top:4px;">
+      <button class="btn bg2" onclick="closeStatusSheet()">Cancel</button>
     </div>
   </div>
 </div>
@@ -959,7 +978,7 @@ function goTo(screen){
     dashboard:'HC Extract',history:'Batch History',
     'new-batch':'New Batch','batch-detail':'Batch Detail',
     'active-log':'Active Batches','edit-batch':'Edit Batch',
-    'extraction-log':'Extraction Log'
+    'extraction-log':'Extraction'
   };
   title.textContent=labels[screen]||'HC Extract';
   const hasBack=['new-batch','batch-detail','active-log','edit-batch'].includes(screen);
@@ -1600,6 +1619,7 @@ function viewBatch(id){
         ${DOWNSTREAM_MAP[b.route]?`<button class="btn bs" onclick="downstream('${b.id}')">Create Downstream Batch →</button>`:''}
         <button class="btn bg2" onclick="reopenBatch('${b.id}')">↩ Reopen Batch</button>
       `}
+      <button class="btn bg2" onclick="openStatusSheet('${b.id}')" style="width:100%;">Correct Status…</button>
       <button class="btn bdr" onclick="delBatch('${b.id}')">Delete Batch</button>
     </div>`;
   goTo('batch-detail');
@@ -2601,6 +2621,60 @@ function goToManager(){
 async function doSignOut(){
   await firebase.auth().signOut();
   window.location.href='../';
+}
+
+/* ============================================================
+   STATUS CORRECTION
+============================================================ */
+let _statusSheetId=null;
+const STAGE_COLORS={
+  draft:'var(--text3)',
+  purging:'#ffb74d',
+  tagged:'#64b5f6',
+  partial:'#ffa726',
+  complete:'var(--accent)'
+};
+
+function openStatusSheet(id){
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  _statusSheetId=id;
+  const cur=getBatchStatus(b);
+  const stages=getStages(b.route);
+  document.getElementById('status-sheet-stages').innerHTML=stages.map(s=>`
+    <div class="stage-chip ${s===cur?'cur':''}" onclick="applyStatusOverride('${s}')">
+      <div class="stage-chip-dot" style="background:${STAGE_COLORS[s]||'var(--text3)'}"></div>
+      <span style="font-size:14px;flex:1;">${getStageLabel(s,b.route)}</span>
+      ${s===cur?'<span style="font-size:11px;color:var(--accent);font-family:var(--mono);">current</span>':''}
+    </div>`).join('');
+  document.getElementById('status-sheet').classList.add('vis');
+}
+
+function closeStatusSheet(){
+  document.getElementById('status-sheet').classList.remove('vis');
+  _statusSheetId=null;
+}
+
+async function applyStatusOverride(newStatus){
+  const id=_statusSheetId;
+  if(!id)return;
+  const b=batches.find(x=>x.id===id);
+  if(!b)return;
+  const prev=getBatchStatus(b);
+  if(prev===newStatus){closeStatusSheet();return;}
+  b.status=newStatus;
+  if(!b.statusHistory)b.statusHistory=[];
+  b.statusHistory.push({
+    from:prev,to:newStatus,ts:Date.now(),
+    uid:currentUser?.uid||'',name:currentUserData?.name||currentUser?.email||'',
+    corrected:true
+  });
+  if(newStatus==='complete')b.completedAt=Date.now();
+  else delete b.completedAt;
+  await saveDoc(b);
+  closeStatusSheet();
+  viewBatch(id);
+  toast('Status updated');
 }
 
 /* ============================================================
