@@ -422,12 +422,16 @@ select.fi option{background:#1a2420;}
 
   <div id="screens">
     <div id="screen-dashboard" class="screen active">
-      <div class="dash-strip" style="margin-top:0;"><div class="ds-label">Tag Assignment Pending</div><div class="ds-line"></div></div>
-      <div id="dash-tag-pending"></div>
+      <div class="dash-strip" style="margin-top:0;"><div class="ds-label">Biomass · This Week</div><div class="ds-line"></div></div>
+      <div id="stats-biomass-week" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Downstream · This Week</div><div class="ds-line"></div></div>
+      <div id="stats-downstream-week" class="sgrid"></div>
       <div class="dash-strip"><div class="ds-label">Biomass · Today</div><div class="ds-line"></div></div>
       <div id="stats-biomass" class="sgrid"></div>
       <div class="dash-strip"><div class="ds-label">Downstream · Today</div><div class="ds-line"></div></div>
       <div id="stats-downstream" class="sgrid"></div>
+      <div class="dash-strip"><div class="ds-label">Tag Assignment Pending</div><div class="ds-line"></div></div>
+      <div id="dash-tag-pending"></div>
       <div class="dash-strip"><div class="ds-label">Active Batches</div><div class="ds-line"></div><button class="view-all-btn" onclick="goTo('active-log')">View All →</button></div>
       <div id="dash-active"></div>
       <div class="dash-strip"><div class="ds-label">Recently Completed</div><div class="ds-line"></div></div>
@@ -1185,11 +1189,49 @@ function renderInventory(){
 /* ============================================================
    DASHBOARD
 ============================================================ */
+function getWeekDates(){
+  const now=new Date();
+  const dow=now.getDay(); // 0=Sun
+  const daysToMon=dow===0?6:dow-1;
+  const mon=new Date(now);mon.setDate(now.getDate()-daysToMon);mon.setHours(0,0,0,0);
+  const dates=[];
+  for(let d=new Date(mon);d<=now;d.setDate(d.getDate()+1))
+    dates.push(d.toISOString().split('T')[0]);
+  return dates;
+}
+
 function renderDash(){
   const today=todayStr();
+  const weekDates=new Set(getWeekDates());
   const todayAll=batches.filter(b=>b.date===today);
+  const weekAll=batches.filter(b=>weekDates.has(b.date));
 
-  // Biomass = stage 1 only
+  // ── Weekly stats ──
+  const ws1=weekAll.filter(b=>ROUTES[b.route]?.stage===1);
+  const ws1In=ws1.reduce((s,b)=>s+(b.totalIn||0),0);
+  const ws1Out=ws1.reduce((s,b)=>s+(b.outWeight||0),0);
+  const wAvgY=ws1.length?(ws1.reduce((s,b)=>s+(b.yieldPct||0),0)/ws1.length):0;
+  document.getElementById('stats-biomass-week').innerHTML=`
+    <div class="scard"><div class="slabel">Runs</div><div class="sval">${ws1.length}<span class="sunit">runs</span></div></div>
+    <div class="scard"><div class="slabel">Avg Yield</div><div class="sval" style="color:${yColor(wAvgY,'crude')}">${wAvgY.toFixed(1)}<span class="sunit">%</span></div></div>
+    <div class="scard"><div class="slabel">Biomass In</div><div class="sval sm">${ws1In.toFixed(0)}<span class="sunit">g</span></div></div>
+    <div class="scard"><div class="slabel">Crude/Badder Out</div><div class="sval sm">${ws1Out.toFixed(1)}<span class="sunit">g</span></div></div>
+  `;
+  const wDiamBatch=weekAll.filter(b=>b.route==='diamonds');
+  const wDiamG=wDiamBatch.reduce((s,b)=>s+(b.outWeight||0),0);
+  const wHteG=wDiamBatch.reduce((s,b)=>s+(b.hteWeight||0),0);
+  const wLqdG=weekAll.filter(b=>b.route==='liquid-diamonds').reduce((s,b)=>s+(b.outWeight||0),0);
+  const wVapeAll=weekAll.filter(b=>VAPE_ROUTES.includes(b.route));
+  const wVapeG=wVapeAll.reduce((s,b)=>s+totalVapeWeight(b),0);
+  const wDashVal=(g)=>g>0?`${g.toFixed(1)}<span class="sunit">g</span>`:`<span style="color:var(--text3);font-size:16px;">—</span>`;
+  document.getElementById('stats-downstream-week').innerHTML=`
+    <div class="scard"><div class="slabel">💎 Diamonds</div><div class="sval sm">${wDashVal(wDiamG)}</div></div>
+    <div class="scard"><div class="slabel">🛢 HTE</div><div class="sval sm">${wDashVal(wHteG)}</div></div>
+    <div class="scard"><div class="slabel">💧 Liq Diamonds</div><div class="sval sm">${wDashVal(wLqdG)}</div></div>
+    <div class="scard"><div class="slabel">💨 Vape Out</div><div class="sval sm">${wVapeG>0?`${wVapeG.toFixed(1)}<span class="sunit">g</span><span style="font-size:11px;color:var(--text3);margin-left:4px;">(${wVapeAll.length})</span>`:'<span style="color:var(--text3);font-size:16px;">—</span>'}</div></div>
+  `;
+
+  // ── Daily stats ──
   const s1=todayAll.filter(b=>ROUTES[b.route]?.stage===1);
   const s1In=s1.reduce((s,b)=>s+(b.totalIn||0),0);
   const s1Out=s1.reduce((s,b)=>s+(b.outWeight||0),0);
