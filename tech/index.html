@@ -329,18 +329,48 @@ select.fi option{background:#1a2420;}
 .bstatus-complete{background:rgba(76,175,80,0.14);color:#81c784;border:1px solid rgba(76,175,80,0.28);}
 
 /* ── Extraction screen ── */
-.ext-timer-display{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rl);padding:20px;text-align:center;margin-bottom:10px;}
-.ext-timer-val{font-family:var(--mono);font-size:44px;font-weight:500;line-height:1;letter-spacing:0.04em;color:var(--accent);}
-.ext-timer-label{font-size:11px;color:var(--text2);margin-top:4px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;}
-.ext-run-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;}
-.ext-run-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px;}
-.ext-run-id{font-family:var(--mono);font-size:13px;font-weight:500;}
-.ext-run-dur{font-family:var(--mono);font-size:20px;font-weight:500;color:var(--accent);}
-.ext-run-meta{font-family:var(--mono);font-size:10px;color:var(--text3);}
-.ext-run-notes{font-size:12px;color:var(--text2);margin-top:4px;}
-.ext-active-run{border-color:var(--accent);background:rgba(76,175,80,0.04);}
+.ext-active-card{background:var(--bg2);border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:var(--rl);padding:14px 16px;margin-bottom:12px;}
+.ext-idle-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:18px 16px;margin-bottom:12px;}
+.ext-run-status-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.ext-status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+.ext-status-label{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.07em;text-transform:uppercase;flex:1;}
+.ext-run-timer{font-family:var(--mono);font-size:24px;font-weight:500;color:var(--text);letter-spacing:0.03em;font-variant-numeric:tabular-nums;}
+.ext-run-strain{font-size:17px;font-weight:500;color:var(--text);margin-bottom:4px;}
+.ext-run-tag{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.ext-btn-row{display:flex;gap:8px;margin-top:14px;}
+.ext-btn-row .btn{flex:1;padding:12px 8px;font-size:14px;}
+.ext-history-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;}
+.ext-hist-strain{font-size:14px;font-weight:500;color:var(--text);}
+.ext-hist-meta{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;}
+.ext-hist-runs{font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:8px;line-height:1.6;}
+.ext-hist-divider{border:none;border-top:1px solid var(--border);margin:10px 0;}
+.ext-offgas-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.ext-offgas-badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;background:rgba(255,183,77,0.11);color:var(--amber);border:1px solid rgba(255,183,77,0.22);}
+.ext-ready-badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;background:rgba(239,83,80,0.12);color:#ef5350;border:1px solid rgba(239,83,80,0.28);}
+.ext-output-row{display:flex;align-items:center;gap:8px;}
+.ext-output-badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;background:rgba(76,175,80,0.12);color:var(--accent);border:1px solid rgba(76,175,80,0.24);}
+.ext-output-meta{font-family:var(--mono);font-size:11px;color:var(--text2);}
 .ext-start-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
 .ext-start-modal.vis{display:flex;}
+/* ── Notification system ── */
+.notif-badge-wrap{position:relative;}
+.notif-count{position:absolute;top:-5px;right:-5px;background:#ef5350;color:#fff;font-family:var(--mono);font-size:9px;font-weight:500;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
+.notif-panel{position:fixed;inset:0;z-index:600;display:none;}
+.notif-panel.vis{display:block;}
+.notif-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,0.65);}
+.notif-panel-sheet{position:absolute;bottom:0;left:0;right:0;max-height:72dvh;background:var(--bg2);border-radius:18px 18px 0 0;border-top:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden;}
+.notif-panel-hdr{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;}
+.notif-panel-title{font-size:14px;font-weight:500;}
+.notif-list{overflow-y:auto;flex:1;padding:8px 8px 24px;}
+.notif-item{padding:12px;border-radius:var(--r);margin-bottom:6px;border:1px solid var(--border);}
+.notif-item.unread{border-color:rgba(255,183,77,0.28);background:rgba(255,183,77,0.05);}
+.notif-item-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px;}
+.notif-item-sub{font-family:var(--mono);font-size:10px;color:var(--text3);}
+.notif-item-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.notif-empty{padding:36px 16px;text-align:center;color:var(--text3);font-size:13px;}
+/* Output tag assignment modal */
+.output-tag-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:710;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+.output-tag-modal.vis{display:flex;}
 
 /* ── Status correction sheet ── */
 .status-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
@@ -371,6 +401,12 @@ select.fi option{background:#1a2420;}
     <button class="hdr-icon" onclick="openSearch()" title="Search batches">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     </button>
+    <div class="notif-badge-wrap">
+      <button class="hdr-icon" id="notif-bell-btn" onclick="openNotifPanel()" title="Notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      </button>
+      <span class="notif-count" id="notif-badge" hidden></span>
+    </div>
   </header>
 
   <div id="screens">
@@ -586,6 +622,38 @@ select.fi option{background:#1a2420;}
   </div>
 </div>
 
+<!-- Notification panel -->
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-panel-bg" onclick="closeNotifPanel()"></div>
+  <div class="notif-panel-sheet">
+    <div class="notif-panel-hdr">
+      <span class="notif-panel-title">Notifications</span>
+      <button class="btn bg2" style="padding:5px 12px;font-size:12px;" onclick="closeNotifPanel()">Done</button>
+    </div>
+    <div class="notif-list" id="notif-list"></div>
+  </div>
+</div>
+
+<!-- Output tag assignment -->
+<div class="output-tag-modal" id="output-tag-modal">
+  <div class="confirm-box" style="max-width:400px;width:100%;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">Assign Output Tag</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:16px;" id="otag-src"></div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Output METRC Tag</label>
+      <input id="otag-tag" class="fi" type="text" placeholder="Scan or enter output tag" autocomplete="off" autocapitalize="characters">
+    </div>
+    <div class="fg" style="margin-bottom:16px;">
+      <label class="flabel">Output Weight (g)</label>
+      <input id="otag-weight" class="fi" type="number" placeholder="0.0" step="0.1" min="0">
+    </div>
+    <div class="confirm-btns">
+      <button class="btn bg2" onclick="closeOutputTagModal()">Cancel</button>
+      <button class="btn bp" id="otag-submit-btn" onclick="submitOutputTag()">Save &amp; Notify Manager</button>
+    </div>
+  </div>
+</div>
+
 <!-- Search overlay -->
 <div id="search-ov">
   <div id="search-bar">
@@ -720,9 +788,11 @@ const BIOMASS_OPTIONS = {
 /* ============================================================
    STATE
 ============================================================ */
-let batches   = [];           // populated by Firestore onSnapshot
-let extRuns   = [];           // extraction runs from Firestore
-let settings  = {};           // loaded in bootApp from localStorage
+let batches       = [];           // populated by Firestore onSnapshot
+let extRuns       = [];           // extraction runs from Firestore
+let notifications = [];           // in-app notifications from Firestore
+let settings      = {};           // loaded in bootApp from localStorage
+let _notifUnsubscribe = null;
 let curScreen = 'dashboard';
 let wStep = 1;
 let draft = {};
@@ -2738,80 +2808,105 @@ function renderExtLog(){
   if(active){
     const elapsed=getElapsedSec(active.startedAt);
     const isRun1=(active.runNumber||1)===1;
-    const runLabel=`Run ${active.runNumber||1}`;
-    // When on Run 2, look up completed Run 1 for the same source tag
+    const runLabel=`Run ${active.runNumber||1}${isRun1?' of 2':''}`;
     const run1Done=isRun1?null:extRuns.find(r=>r.sourceTag===active.sourceTag&&(r.runNumber||1)===1&&r.endedAt);
-    html+=`<div class="ext-timer-display ext-active-run">
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;">
-        <span class="badge bstatus-tagged" style="font-size:10px;">${runLabel}</span>
-        <span style="font-family:var(--mono);font-size:12px;color:var(--accent);">${active.strain||'—'}</span>
+    const startedStr=new Date(active.startedAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    html+=`<div class="ext-active-card">
+      <div class="ext-run-status-row">
+        <div class="ext-status-dot"></div>
+        <span class="ext-status-label">In Progress · ${runLabel}</span>
+        <span class="ext-run-timer" id="ext-timer-val">${fmtDuration(elapsed)}</span>
       </div>
-      <div class="ext-timer-val" id="ext-timer-val">${fmtDuration(elapsed)}</div>
-      <div class="ext-timer-label">Extraction in progress</div>
-      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;">${tagShort(active.sourceTag)}</div>
-      ${run1Done?`<div style="font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:6px;">Run 1: ${fmtDuration(run1Done.durationSec)}</div>`:''}
-      ${active.notes?`<div style="font-size:12px;color:var(--text2);margin-top:4px;">${active.notes}</div>`:''}
-    </div>
-    ${isRun1?`
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <button class="btn bp" style="flex:1;padding:14px 8px;font-size:14px;" onclick="beginRun2('${active.id}')">Begin Run 2</button>
-      <button class="btn bg2" style="flex:1;padding:14px 8px;font-size:14px;" onclick="stopExtRunPrompt('${active.id}')">Stop Run 1</button>
-    </div>`:`
-    <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="stopExtRunPrompt('${active.id}')">⏹ Stop &amp; Save</button>`}`;
+      <div class="ext-run-strain">${active.strain||'—'}</div>
+      <div class="ext-run-tag">${tagShort(active.sourceTag)} · Started ${startedStr}</div>
+      ${run1Done?`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:6px;">Run 1 recorded: ${fmtDuration(run1Done.durationSec)}</div>`:''}
+      ${active.notes?`<div style="font-size:12px;color:var(--text2);margin-top:6px;">${active.notes}</div>`:''}
+      ${isRun1?`
+      <div class="ext-btn-row">
+        <button class="btn bp" onclick="beginRun2('${active.id}')">Begin Run 2</button>
+        <button class="btn bg2" onclick="stopExtRunPrompt('${active.id}')">Stop Run 1</button>
+      </div>`:`
+      <div class="ext-btn-row">
+        <button class="btn bp" onclick="stopExtRunPrompt('${active.id}')">Stop &amp; Record Run 2</button>
+      </div>`}
+    </div>`;
   } else {
-    html+=`<div class="ext-timer-display">
-      <div class="ext-timer-val" style="color:var(--text3);">--:--</div>
-      <div class="ext-timer-label">No active extraction</div>
-    </div>
-    <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="openExtStartModal()">▶ Start Extraction</button>`;
+    html+=`<div class="ext-idle-card">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:6px;">Machine Idle</div>
+      <div style="font-size:15px;color:var(--text2);margin-bottom:16px;">No active extraction</div>
+      <button class="btn bp" style="width:100%;" onclick="openExtStartModal()">Start Extraction Run</button>
+    </div>`;
   }
 
   // ── History grouped by sourceTag ──
   if(past.length){
+    checkAndCreateOffGasNotifs();
     html+=`<div class="section-header" style="margin-bottom:8px;">Run History</div>`;
+    const offGasHours=settings.offGasHours||12;
+    const now=Date.now();
 
-    // Group by sourceTag; order by most recent first
     const groups=new Map();
     past.forEach(r=>{
       const key=r.sourceTag||r.id;
-      if(!groups.has(key)) groups.set(key,[]);
+      if(!groups.has(key))groups.set(key,[]);
       groups.get(key).push(r);
     });
 
     [...groups.entries()].forEach(([tag,runs])=>{
-      // Sort runs within group by runNumber
       runs.sort((a,b)=>(a.runNumber||1)-(b.runNumber||1));
       const run1=runs.find(r=>(r.runNumber||1)===1);
       const run2=runs.find(r=>r.runNumber===2);
+      const lastRun=run2||run1;
       const strain=runs[0].strain||'—';
       const d=new Date(runs[0].startedAt);
       const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
       const techName=runs[0].techName||'';
-
-      // Total duration if both runs complete
       const totalSec=(run1?.durationSec||0)+(run2?.durationSec||0);
-      const totalLabel=(run1?.durationSec&&run2?.durationSec)?`Total: ${fmtDuration(totalSec)}`:'';
 
-      html+=`<div class="ext-run-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+      let runsLine='';
+      if(run1?.durationSec!=null) runsLine+=`R1 ${fmtDuration(run1.durationSec)}`;
+      if(run2?.durationSec!=null) runsLine+=`  ·  R2 ${fmtDuration(run2.durationSec)}`;
+      if(run1?.durationSec&&run2?.durationSec) runsLine+=`  ·  Total ${fmtDuration(totalSec)}`;
+
+      // Off-gas / output status footer
+      let statusHtml='';
+      if(lastRun?.outputTag){
+        statusHtml=`<hr class="ext-hist-divider">
+          <div class="ext-output-row">
+            <span class="ext-output-badge">Output Tagged</span>
+            <span class="ext-output-meta">${tagShort(lastRun.outputTag)}${lastRun.outputWeight?`  ·  ${lastRun.outputWeight}g`:''}</span>
+          </div>`;
+      } else {
+        const offGasReadyAt=(lastRun?.endedAt||0)+offGasHours*3600000;
+        if(now>=offGasReadyAt){
+          statusHtml=`<hr class="ext-hist-divider">
+            <div class="ext-offgas-row">
+              <span class="ext-ready-badge">Action Required</span>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--text2);flex:1;">Ready to weigh &amp; tag</span>
+              <button class="btn bg2" style="font-size:12px;padding:5px 10px;" onclick="openOutputTagModal('${tag.replace(/'/g,"\\'")}')">Assign Output Tag →</button>
+            </div>`;
+        } else {
+          const remainMs=offGasReadyAt-now;
+          const remainH=Math.ceil(remainMs/3600000);
+          statusHtml=`<hr class="ext-hist-divider">
+            <div class="ext-offgas-row">
+              <span class="ext-offgas-badge">Off-Gas</span>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">Ready in ~${remainH}h</span>
+            </div>`;
+        }
+      }
+
+      html+=`<div class="ext-history-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <div class="ext-run-id">${strain}</div>
-            <div class="ext-run-meta">${dateStr}${techName?' · '+techName:''}</div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;">${tagShort(tag)}</div>
+            <div class="ext-hist-strain">${strain}</div>
+            <div class="ext-hist-meta">${tagShort(tag)}${techName?' · '+techName:''}</div>
           </div>
-          ${totalLabel?`<div style="font-family:var(--mono);font-size:11px;color:var(--text2);">${totalLabel}</div>`:''}
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);">${dateStr}</div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <div style="flex:1;background:var(--bg3);border-radius:6px;padding:8px 10px;">
-            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.06em;margin-bottom:3px;">RUN 1</div>
-            <div style="font-family:var(--mono);font-size:18px;font-weight:500;color:${run1?'var(--accent)':'var(--text3)'};">${run1?.durationSec!=null?fmtDuration(run1.durationSec):'—'}</div>
-          </div>
-          <div style="flex:1;background:var(--bg3);border-radius:6px;padding:8px 10px;">
-            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.06em;margin-bottom:3px;">RUN 2</div>
-            <div style="font-family:var(--mono);font-size:18px;font-weight:500;color:${run2?'var(--accent)':'var(--text3)'};">${run2?.durationSec!=null?fmtDuration(run2.durationSec):'—'}</div>
-          </div>
-        </div>
-        ${(run1?.notes||run2?.notes)?`<div class="ext-run-notes" style="margin-top:6px;">${[run1?.notes,run2?.notes].filter(Boolean).join(' · ')}</div>`:''}
+        ${runsLine?`<div class="ext-hist-runs">${runsLine}</div>`:''}
+        ${(run1?.notes||run2?.notes)?`<div style="font-size:12px;color:var(--text2);margin-top:4px;">${[run1?.notes,run2?.notes].filter(Boolean).join(' · ')}</div>`:''}
+        ${statusHtml}
       </div>`;
     });
   } else if(!active){
@@ -2945,6 +3040,171 @@ async function stopExtRun(runId){
 }
 
 /* ============================================================
+   NOTIFICATIONS
+============================================================ */
+function startNotifListener(){
+  if(_notifUnsubscribe)_notifUnsubscribe();
+  _notifUnsubscribe=db.collection('notifications')
+    .where('facilityId','==',FACILITY_ID)
+    .orderBy('createdAt','desc')
+    .limit(80)
+    .onSnapshot(snap=>{
+      notifications=snap.docs.map(d=>({id:d.id,...d.data()}));
+      renderNotifBell();
+      if(curScreen==='extraction-log')renderExtLog();
+    },err=>console.error('notifications listener error:',err));
+}
+
+function renderNotifBell(){
+  const uid=currentUser?.uid||'';
+  const unread=notifications.filter(n=>n.targetRole==='tech'&&!(n.readBy?.[uid])).length;
+  const badge=document.getElementById('notif-badge');
+  if(!badge)return;
+  badge.textContent=unread||'';
+  badge.hidden=!unread;
+}
+
+function openNotifPanel(){
+  renderNotifPanel();
+  document.getElementById('notif-panel').classList.add('vis');
+}
+function closeNotifPanel(){
+  document.getElementById('notif-panel').classList.remove('vis');
+}
+function renderNotifPanel(){
+  const uid=currentUser?.uid||'';
+  const techNotifs=notifications.filter(n=>n.targetRole==='tech');
+  const list=document.getElementById('notif-list');
+  if(!list)return;
+  if(!techNotifs.length){
+    list.innerHTML=`<div class="notif-empty">No notifications</div>`;
+    return;
+  }
+  list.innerHTML=techNotifs.map(n=>{
+    const unread=!(n.readBy?.[uid]);
+    const ts=new Date(n.createdAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    let title='',sub='',actions='';
+    if(n.type==='output_tag_needed'){
+      title=`${n.strain||tagShort(n.sourceTag)} — Ready to Process`;
+      sub=`${tagShort(n.sourceTag||'')} · ${ts}`;
+      actions=`<button class="btn bg2" style="font-size:12px;padding:5px 10px;" onclick="closeNotifPanel();openOutputTagModal('${(n.sourceTag||'').replace(/'/g,"\\'")}')">Assign Output Tag →</button>
+               <button class="btn bg2" style="font-size:12px;padding:5px 10px;" onclick="markNotifRead('${n.id}')">Dismiss</button>`;
+    } else if(n.type==='output_tag_assigned'){
+      title=`Output tag assigned`;
+      sub=`${tagShort(n.outputTag||'')} · ${n.assignedByName||'Tech'} · ${ts}`;
+    }
+    return `<div class="notif-item${unread?' unread':''}">
+      <div class="notif-item-title">${title}</div>
+      <div class="notif-item-sub">${sub}</div>
+      ${actions?`<div class="notif-item-actions">${actions}</div>`:''}
+    </div>`;
+  }).join('');
+}
+async function markNotifRead(id){
+  const uid=currentUser?.uid||'';
+  if(!uid)return;
+  try{await db.collection('notifications').doc(id).update({[`readBy.${uid}`]:Date.now()});}
+  catch(e){console.error('markNotifRead:',e);}
+}
+
+function checkAndCreateOffGasNotifs(){
+  if(!currentUser)return;
+  const offGasHours=settings.offGasHours||12;
+  const now=Date.now();
+  const groups=new Map();
+  extRuns.filter(r=>r.endedAt).forEach(r=>{
+    const key=r.sourceTag||r.id;
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(r);
+  });
+  groups.forEach((runs,sourceTag)=>{
+    runs.sort((a,b)=>(b.runNumber||1)-(a.runNumber||1));
+    const lastRun=runs[0];
+    if(lastRun.outputTag)return;
+    const offGasReadyAt=(lastRun.endedAt||0)+offGasHours*3600000;
+    if(now<offGasReadyAt)return;
+    const existing=notifications.find(n=>n.sourceTag===sourceTag&&n.type==='output_tag_needed');
+    if(existing)return;
+    db.collection('notifications').add({
+      facilityId:FACILITY_ID,
+      type:'output_tag_needed',
+      targetRole:'tech',
+      sourceTag,
+      strain:lastRun.strain||'',
+      runIds:runs.map(r=>r.id),
+      createdAt:Date.now(),
+      readBy:{}
+    }).catch(e=>console.error('create notif error:',e));
+  });
+}
+
+/* Output tag assignment */
+let _outputTagSource=null;
+
+function openOutputTagModal(sourceTag){
+  _outputTagSource=sourceTag;
+  const el=document.getElementById('otag-src');
+  if(el)el.textContent=tagShort(sourceTag);
+  document.getElementById('otag-tag').value='';
+  document.getElementById('otag-weight').value='';
+  document.getElementById('output-tag-modal').classList.add('vis');
+  setTimeout(()=>document.getElementById('otag-tag')?.focus(),80);
+}
+function closeOutputTagModal(){
+  document.getElementById('output-tag-modal').classList.remove('vis');
+  _outputTagSource=null;
+}
+async function submitOutputTag(){
+  const sourceTag=_outputTagSource;
+  if(!sourceTag)return;
+  const outputTag=document.getElementById('otag-tag').value.trim();
+  const outputWeight=parseFloat(document.getElementById('otag-weight').value)||0;
+  if(!outputTag){toast('Enter the output METRC tag');return;}
+  if(!outputWeight){toast('Enter the output weight');return;}
+  const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt);
+  if(!runs.length)return;
+  runs.sort((a,b)=>(b.runNumber||1)-(a.runNumber||1));
+  const lastRun=runs[0];
+  const btn=document.getElementById('otag-submit-btn');
+  btn.disabled=true;
+  try{
+    await db.collection('extraction_runs').doc(lastRun.id).update({
+      outputTag,
+      outputWeight,
+      outputTagAssignedAt:Date.now(),
+      outputTaggedByName:currentUserData?.name||currentUser?.email||''
+    });
+    // Dismiss pending tech notifications for this source tag
+    const uid=currentUser?.uid||'';
+    const pending=notifications.filter(n=>n.sourceTag===sourceTag&&n.type==='output_tag_needed');
+    await Promise.all(pending.map(n=>
+      db.collection('notifications').doc(n.id).update({[`readBy.${uid}`]:Date.now()})
+    ));
+    // Notify management
+    await db.collection('notifications').add({
+      facilityId:FACILITY_ID,
+      type:'output_tag_assigned',
+      targetRole:'manager',
+      sourceTag,
+      outputTag,
+      outputWeight,
+      strain:lastRun.strain||'',
+      assignedByName:currentUserData?.name||currentUser?.email||'',
+      assignedAt:Date.now(),
+      createdAt:Date.now(),
+      readBy:{}
+    });
+    closeOutputTagModal();
+    toast(`Output tag assigned · ${outputWeight}g recorded`);
+  }catch(e){
+    console.error('submitOutputTag error:',e);
+    toast('⚠ Could not save — check connection');
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+/* ============================================================
    BOOT
 ============================================================ */
 function bootApp(){
@@ -2953,6 +3213,7 @@ function bootApp(){
   goTo('dashboard');
   try{startListener();}catch(e){console.error('Firestore listener failed:',e);toast('⚠ Could not connect to database');}
   try{startExtRunListener();}catch(e){console.error('extraction_runs listener failed:',e);}
+  try{startNotifListener();}catch(e){console.error('notifications listener failed:',e);}
 }
 
 /* ============================================================
