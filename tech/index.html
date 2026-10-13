@@ -526,17 +526,36 @@ select.fi option{background:#1a2420;}
 <!-- Extraction start modal -->
 <div class="ext-start-modal" id="ext-start-modal">
   <div class="confirm-box" style="max-width:400px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px;">Start Extraction Run</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:14px;">Start Extraction Run</div>
+
     <div class="fg" style="margin-bottom:12px;">
-      <label class="flabel">Crude Batch</label>
-      <select id="ext-batch-select" class="fi" style="background:var(--bg3);">
-        <option value="">— Select batch —</option>
-      </select>
+      <label class="flabel">Source Tag</label>
+      <div style="display:flex;gap:8px;">
+        <input id="ext-src-tag" class="fi" style="flex:1;font-family:var(--mono);font-size:12px;letter-spacing:0.04em;" type="text" placeholder="Scan or enter METRC tag" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button onclick="scanExtSourceTag()" style="flex-shrink:0;width:42px;height:42px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="2" y="3" width="4" height="18" rx="1"/><rect x="8" y="3" width="2" height="18" rx="0.5"/><rect x="12" y="3" width="3" height="18" rx="0.5"/><rect x="17" y="3" width="5" height="18" rx="1"/></svg>
+        </button>
+      </div>
     </div>
+
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Strain</label>
+      <input id="ext-strain" class="fi" type="text" placeholder="e.g. Blue Dream" autocomplete="off" autocapitalize="words">
+    </div>
+
+    <div class="fg" style="margin-bottom:16px;">
+      <label class="flabel">Run #</label>
+      <div style="display:flex;gap:8px;">
+        <button id="ext-run1-btn" class="btn bp" style="flex:1;" onclick="setExtRunNum(1)">Run 1</button>
+        <button id="ext-run2-btn" class="btn bg2" style="flex:1;" onclick="setExtRunNum(2)">Run 2</button>
+      </div>
+    </div>
+
     <div class="fg" style="margin-bottom:16px;">
       <label class="flabel">Notes (optional)</label>
-      <input id="ext-notes" class="fi" type="text" placeholder="e.g. 2nd run of day" autocomplete="off">
+      <input id="ext-notes" class="fi" type="text" placeholder="Optional notes" autocomplete="off">
     </div>
+
     <div class="confirm-btns">
       <button class="btn bg2" onclick="closeExtStartModal()">Cancel</button>
       <button class="btn bp" id="ext-start-btn" onclick="startExtRun()">▶ Start</button>
@@ -2643,40 +2662,31 @@ async function doSignOut(){
    EXTRACTION LOG
 ============================================================ */
 let extRuns=[], _activeRunId=null, _timerInterval=null;
-let _extUnsubscribe=null;
+let _extUnsubscribe=null, _extRunNum=1;
+
+function tagShort(tag){ return tag?('…'+tag.slice(-8)):'—'; }
 
 function startExtRunListener(){
   if(_extUnsubscribe)_extUnsubscribe();
   _extUnsubscribe=db.collection('extraction_runs')
     .where('facilityId','==',FACILITY_ID)
     .orderBy('startedAt','desc')
-    .limit(50)
+    .limit(100)
     .onSnapshot(snap=>{
       extRuns=snap.docs.map(d=>({id:d.id,...d.data()}));
-      // Find active run (no endedAt)
       const active=extRuns.find(r=>!r.endedAt);
       if(active){
-        if(_activeRunId!==active.id){
-          _activeRunId=active.id;
-          startTimerTick();
-        }
+        if(_activeRunId!==active.id){ _activeRunId=active.id; startTimerTick(); }
       } else {
-        if(_activeRunId){
-          _activeRunId=null;
-          stopTimerTick();
-        }
+        if(_activeRunId){ _activeRunId=null; stopTimerTick(); }
       }
       if(curScreen==='extraction-log')renderExtLog();
-    },err=>{
-      console.error('extraction_runs listener error:',err);
-    });
+    },err=>{ console.error('extraction_runs listener error:',err); });
 }
 
 function startTimerTick(){
   stopTimerTick();
-  _timerInterval=setInterval(()=>{
-    if(curScreen==='extraction-log')updateTimerDisplay();
-  },1000);
+  _timerInterval=setInterval(()=>{ if(curScreen==='extraction-log')updateTimerDisplay(); },1000);
 }
 function stopTimerTick(){
   if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null;}
@@ -2689,18 +2699,13 @@ function fmtDuration(sec){
   if(h>0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
-
-function getElapsedSec(startedAt){
-  return Math.floor((Date.now()-startedAt)/1000);
-}
+function getElapsedSec(startedAt){ return Math.floor((Date.now()-startedAt)/1000); }
 
 function updateTimerDisplay(){
   const el=document.getElementById('ext-timer-val');
   if(!el)return;
   const run=extRuns.find(r=>r.id===_activeRunId);
-  if(run&&!run.endedAt){
-    el.textContent=fmtDuration(getElapsedSec(run.startedAt));
-  }
+  if(run&&!run.endedAt) el.textContent=fmtDuration(getElapsedSec(run.startedAt));
 }
 
 function renderExtLog(){
@@ -2709,20 +2714,23 @@ function renderExtLog(){
 
   const active=extRuns.find(r=>!r.endedAt);
   const past=extRuns.filter(r=>!!r.endedAt);
-
   let html='';
 
-  // ── Active run card ──
+  // ── Active run ──
   if(active){
     const elapsed=getElapsedSec(active.startedAt);
-    const bLabel=active.batchLabel||active.batchId||'—';
+    const runLabel=active.runNumber?`Run ${active.runNumber}`:'';
     html+=`<div class="ext-timer-display ext-active-run">
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;">
+        ${runLabel?`<span class="badge bstatus-tagged" style="font-size:10px;">${runLabel}</span>`:''}
+        <span style="font-family:var(--mono);font-size:12px;color:var(--accent);">${active.strain||'—'}</span>
+      </div>
       <div class="ext-timer-val" id="ext-timer-val">${fmtDuration(elapsed)}</div>
       <div class="ext-timer-label">Extraction in progress</div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:6px;">${bLabel}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px;">${tagShort(active.sourceTag)}</div>
       ${active.notes?`<div style="font-size:12px;color:var(--text2);margin-top:4px;">${active.notes}</div>`:''}
     </div>
-    <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="stopExtRunPrompt('${active.id}')">⏹ Stop Extraction</button>`;
+    <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="stopExtRunPrompt('${active.id}')">⏹ Stop &amp; Save</button>`;
   } else {
     html+=`<div class="ext-timer-display">
       <div class="ext-timer-val" style="color:var(--text3);">--:--</div>
@@ -2731,60 +2739,112 @@ function renderExtLog(){
     <button class="btn bp" style="width:100%;margin-bottom:16px;" onclick="openExtStartModal()">▶ Start Extraction</button>`;
   }
 
-  // ── Past runs ──
+  // ── History grouped by sourceTag ──
   if(past.length){
-    html+=`<div class="section-header" style="margin-bottom:8px;">Recent Runs</div>`;
-    html+=past.map(r=>{
-      const dur=r.durationSec!=null?fmtDuration(r.durationSec):'—';
-      const bLabel=r.batchLabel||r.batchId||'—';
-      const d=new Date(r.startedAt);
+    html+=`<div class="section-header" style="margin-bottom:8px;">Run History</div>`;
+
+    // Group by sourceTag; order by most recent first
+    const groups=new Map();
+    past.forEach(r=>{
+      const key=r.sourceTag||r.id;
+      if(!groups.has(key)) groups.set(key,[]);
+      groups.get(key).push(r);
+    });
+
+    [...groups.entries()].forEach(([tag,runs])=>{
+      // Sort runs within group by runNumber
+      runs.sort((a,b)=>(a.runNumber||1)-(b.runNumber||1));
+      const run1=runs.find(r=>(r.runNumber||1)===1);
+      const run2=runs.find(r=>r.runNumber===2);
+      const strain=runs[0].strain||'—';
+      const d=new Date(runs[0].startedAt);
       const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-      const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-      return`<div class="ext-run-card">
-        <div class="ext-run-top">
+      const techName=runs[0].techName||'';
+
+      // Total duration if both runs complete
+      const totalSec=(run1?.durationSec||0)+(run2?.durationSec||0);
+      const totalLabel=(run1?.durationSec&&run2?.durationSec)?`Total: ${fmtDuration(totalSec)}`:'';
+
+      html+=`<div class="ext-run-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div>
-            <div class="ext-run-id">${bLabel}</div>
-            <div class="ext-run-meta">${dateStr} · ${timeStr}${r.techName?' · '+r.techName:''}</div>
-            ${r.notes?`<div class="ext-run-notes">${r.notes}</div>`:''}
+            <div class="ext-run-id">${strain}</div>
+            <div class="ext-run-meta">${dateStr}${techName?' · '+techName:''}</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;">${tagShort(tag)}</div>
           </div>
-          <div class="ext-run-dur">${dur}</div>
+          ${totalLabel?`<div style="font-family:var(--mono);font-size:11px;color:var(--text2);">${totalLabel}</div>`:''}
         </div>
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;background:var(--bg3);border-radius:6px;padding:8px 10px;">
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.06em;margin-bottom:3px;">RUN 1</div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:500;color:${run1?'var(--accent)':'var(--text3)'};">${run1?.durationSec!=null?fmtDuration(run1.durationSec):'—'}</div>
+          </div>
+          <div style="flex:1;background:var(--bg3);border-radius:6px;padding:8px 10px;">
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.06em;margin-bottom:3px;">RUN 2</div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:500;color:${run2?'var(--accent)':'var(--text3)'};">${run2?.durationSec!=null?fmtDuration(run2.durationSec):'—'}</div>
+          </div>
+        </div>
+        ${(run1?.notes||run2?.notes)?`<div class="ext-run-notes" style="margin-top:6px;">${[run1?.notes,run2?.notes].filter(Boolean).join(' · ')}</div>`:''}
       </div>`;
-    }).join('');
+    });
   } else if(!active){
-    html+=`<div class="empty"><div class="eicon">⏱</div><div class="etitle">No runs yet</div><div class="esub">Start an extraction to begin tracking</div></div>`;
+    html+=`<div class="empty"><div class="eicon">⏱</div><div class="etitle">No runs yet</div><div class="esub">Scan source tag to begin tracking</div></div>`;
   }
 
   el.innerHTML=html;
 }
 
-function openExtStartModal(){
-  // Populate batch picker with non-complete crude batches
-  const crudeBatches=batches.filter(b=>b.route==='crude'&&!isComplete(b));
-  const sel=document.getElementById('ext-batch-select');
-  sel.innerHTML=`<option value="">— Select batch —</option>`
-    +crudeBatches.map(b=>`<option value="${b.id}" data-label="${b.batchId}">${b.batchId}${b.strain?' · '+b.strain:''}</option>`).join('');
-  document.getElementById('ext-start-modal').classList.add('vis');
+function setExtRunNum(n){
+  _extRunNum=n;
+  document.getElementById('ext-run1-btn').className=`btn ${n===1?'bp':'bg2'}`;
+  document.getElementById('ext-run2-btn').className=`btn ${n===2?'bp':'bg2'}`;
 }
+
+function openExtStartModal(){
+  // Default run # — suggest 2 if the most recent batch for the last-used tag already has run 1
+  setExtRunNum(1);
+  document.getElementById('ext-src-tag').value='';
+  document.getElementById('ext-strain').value='';
+  document.getElementById('ext-notes').value='';
+  document.getElementById('ext-start-modal').classList.add('vis');
+  setTimeout(()=>document.getElementById('ext-src-tag')?.focus(),80);
+}
+
 function closeExtStartModal(){
   document.getElementById('ext-start-modal').classList.remove('vis');
-  document.getElementById('ext-notes').value='';
+}
+
+function scanExtSourceTag(){
+  // Temporarily hide modal, open scanner; restore modal after scan
+  document.getElementById('ext-start-modal').classList.remove('vis');
+  scanCB=tag=>{
+    closeScanner();
+    document.getElementById('ext-src-tag').value=tag;
+    // Auto-suggest run # based on existing runs for this tag
+    const existingRuns=extRuns.filter(r=>r.sourceTag===tag&&r.endedAt);
+    const hasRun1=existingRuns.some(r=>(r.runNumber||1)===1);
+    setExtRunNum(hasRun1?2:1);
+    document.getElementById('ext-start-modal').classList.add('vis');
+    setTimeout(()=>document.getElementById('ext-strain')?.focus(),120);
+  };
+  document.getElementById('scan-ov').classList.add('act');
+  startScanner();
 }
 
 async function startExtRun(){
-  const sel=document.getElementById('ext-batch-select');
-  const batchId=sel.value;
-  if(!batchId){toast('Select a batch first');return;}
-  const opt=sel.querySelector(`option[value="${batchId}"]`);
-  const batchLabel=opt?opt.getAttribute('data-label'):batchId;
+  const sourceTag=document.getElementById('ext-src-tag').value.trim();
+  const strain=document.getElementById('ext-strain').value.trim();
   const notes=document.getElementById('ext-notes').value.trim();
+  if(!sourceTag){toast('Scan or enter a source tag');return;}
+  if(!strain){toast('Enter strain name');return;}
   const btn=document.getElementById('ext-start-btn');
   btn.disabled=true;
   try{
     await db.collection('extraction_runs').add({
       facilityId:FACILITY_ID,
-      batchId,
-      batchLabel,
+      sourceTag,
+      strain,
+      runNumber:_extRunNum,
       notes:notes||'',
       techUid:currentUser?.uid||'',
       techName:currentUserData?.name||currentUser?.email||'',
@@ -2794,11 +2854,11 @@ async function startExtRun(){
     });
     closeExtStartModal();
     goTo('extraction-log');
-    toast('Extraction started ▶');
+    toast(`Run ${_extRunNum} started ▶`);
   }catch(e){
     console.error('startExtRun error:',e);
     toast('⚠ Could not start run');
-  } finally{
+  }finally{
     btn.disabled=false;
   }
 }
@@ -2807,8 +2867,9 @@ function stopExtRunPrompt(runId){
   const run=extRuns.find(r=>r.id===runId);
   if(!run)return;
   const elapsed=fmtDuration(getElapsedSec(run.startedAt));
+  const label=`${run.strain||'—'} · Run ${run.runNumber||1}`;
   showConfirm(
-    `Stop extraction? Record ${elapsed} for ${run.batchLabel||run.batchId}.`,
+    `Stop extraction? Record ${elapsed} for ${label}.`,
     ()=>stopExtRun(runId),
     'Stop & Save',
     'bp'
@@ -2822,7 +2883,7 @@ async function stopExtRun(runId){
   const durationSec=Math.floor((endedAt-run.startedAt)/1000);
   try{
     await db.collection('extraction_runs').doc(runId).update({endedAt,durationSec});
-    toast(`Extraction complete · ${fmtDuration(durationSec)}`);
+    toast(`Run ${run.runNumber||1} complete · ${fmtDuration(durationSec)}`);
   }catch(e){
     console.error('stopExtRun error:',e);
     toast('⚠ Could not stop run');
