@@ -339,6 +339,17 @@ select.fi option{background:#1a2420;}
 .ext-run-tag{font-family:var(--mono);font-size:11px;color:var(--text3);}
 .ext-btn-row{display:flex;gap:8px;margin-top:14px;}
 .ext-btn-row .btn{flex:1;padding:12px 8px;font-size:14px;}
+/* ── Tag assignment pending cards ── */
+.tap-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.tap-card.tap-ready{border-left:3px solid #ef5350;}
+.tap-card.tap-offgas{border-left:3px solid var(--amber);}
+.tap-icon{width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
+.tap-body{flex:1;min-width:0;}
+.tap-strain{font-size:14px;font-weight:500;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tap-meta{font-family:var(--mono);font-size:10px;color:var(--text3);}
+.tap-pill{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:4px;flex-shrink:0;}
+.tap-pill-ready{background:rgba(239,83,80,0.12);color:#ef5350;border:1px solid rgba(239,83,80,0.28);}
+.tap-pill-offgas{background:rgba(255,183,77,0.11);color:var(--amber);border:1px solid rgba(255,183,77,0.22);}
 .ext-history-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:8px;}
 .ext-hist-strain{font-size:14px;font-weight:500;color:var(--text);}
 .ext-hist-meta{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;}
@@ -417,6 +428,8 @@ select.fi option{background:#1a2420;}
       <div id="stats-downstream" class="sgrid"></div>
       <div class="dash-strip"><div class="ds-label">Crude &amp; Badder Inventory</div><div class="ds-line"></div></div>
       <div id="dash-inventory"></div>
+      <div class="dash-strip"><div class="ds-label">Tag Assignment Pending</div><div class="ds-line"></div></div>
+      <div id="dash-tag-pending"></div>
       <div class="dash-strip"><div class="ds-label">Active Batches</div><div class="ds-line"></div><button class="view-all-btn" onclick="goTo('active-log')">View All →</button></div>
       <div id="dash-active"></div>
       <div class="dash-strip"><div class="ds-label">Recently Completed</div><div class="ds-line"></div></div>
@@ -1203,6 +1216,56 @@ function renderDash(){
   `;
 
   renderInventory();
+
+  // ── Tag Assignment Pending ──
+  // Group extRuns by sourceTag; find tags where all runs are done but no outputTag yet
+  const runsByTag={};
+  extRuns.forEach(r=>{
+    if(!runsByTag[r.sourceTag]) runsByTag[r.sourceTag]=[];
+    runsByTag[r.sourceTag].push(r);
+  });
+  const offGasHours=settings.offGasHours||12;
+  const now2=Date.now();
+  const pendingTags=Object.entries(runsByTag)
+    .filter(([tag,runs])=>{
+      if(runs.some(r=>!r.endedAt)) return false; // still running
+      const last=runs.sort((a,b)=>b.endedAt-a.endedAt)[0];
+      return !last.outputTag; // needs tag
+    })
+    .map(([tag,runs])=>{
+      const last=runs.sort((a,b)=>b.endedAt-a.endedAt)[0];
+      const offGasReadyAt=(last.endedAt||0)+offGasHours*3600000;
+      const isReady=now2>=offGasReadyAt;
+      const runCount=runs.length;
+      const remainH=isReady?0:Math.ceil((offGasReadyAt-now2)/3600000);
+      return{tag,last,runCount,isReady,remainH};
+    })
+    .sort((a,b)=>{
+      if(a.isReady!==b.isReady) return a.isReady?-1:1;
+      return (a.last.endedAt||0)-(b.last.endedAt||0);
+    });
+
+  const tpEl=document.getElementById('dash-tag-pending');
+  if(!pendingTags.length){
+    tpEl.innerHTML=`<p style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:4px 0 8px;">No batches awaiting tag assignment</p>`;
+  } else {
+    tpEl.innerHTML=pendingTags.map(({tag,last,runCount,isReady,remainH})=>{
+      const pill=isReady
+        ?`<span class="tap-pill tap-pill-ready">Ready</span>`
+        :`<span class="tap-pill tap-pill-offgas">~${remainH}h</span>`;
+      const tagShortStr=tag.length>12?'…'+tag.slice(-8):tag;
+      const runsLabel=runCount===1?'1 run':`${runCount} runs`;
+      const endedDate=last.endedAt?new Date(last.endedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+      return`<div class="tap-card ${isReady?'tap-ready':'tap-offgas'}" onclick="goTo('extraction-log')">
+        <div class="tap-icon" style="background:${isReady?'rgba(239,83,80,0.1)':'rgba(255,183,77,0.1)'}">🏷️</div>
+        <div class="tap-body">
+          <div class="tap-strain">${last.strain||'—'}</div>
+          <div class="tap-meta">${tagShortStr} · ${runsLabel} · ${endedDate}</div>
+        </div>
+        ${pill}
+      </div>`;
+    }).join('');
+  }
 
   const active=batches.filter(b=>!isComplete(b));
   document.getElementById('dash-active').innerHTML=active.length
@@ -2773,6 +2836,7 @@ function startExtRunListener(){
         if(_activeRunId){ _activeRunId=null; stopTimerTick(); }
       }
       if(curScreen==='extraction-log')renderExtLog();
+      if(curScreen==='dashboard')renderDash();
     },err=>{ console.error('extraction_runs listener error:',err); });
 }
 
@@ -2964,21 +3028,6 @@ async function startExtRun(){
   if(!sourceTag){toast('Scan or enter a source tag');return;}
   if(!strain){toast('Enter strain name');return;}
   if(extRuns.find(r=>!r.endedAt)){toast('An extraction is already in progress');closeExtStartModal();return;}
-  // Block if this source tag has completed runs that still need an output tag
-  const tagRuns=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt);
-  if(tagRuns.length>0){
-    const lastRun=tagRuns.sort((a,b)=>b.endedAt-a.endedAt)[0];
-    if(!lastRun.outputTag){
-      const offGasHours=settings.offGasHours||12;
-      const offGasReadyAt=(lastRun.endedAt||0)+offGasHours*3600000;
-      const msg=Date.now()<offGasReadyAt
-        ?'Tag is still off-gassing — assign output tag when ready'
-        :'Tag needs an output tag assigned before it can be re-run';
-      toast(msg);
-      closeExtStartModal();
-      return;
-    }
-  }
   const btn=document.getElementById('ext-start-btn');
   btn.disabled=true;
   try{
