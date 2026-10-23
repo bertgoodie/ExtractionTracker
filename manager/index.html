@@ -242,6 +242,24 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .ptags-tag{color:var(--text2);}
 .ptags-empty{text-align:center;padding:40px 20px;color:var(--accent);font-size:13px;font-family:var(--mono);}
 .ptags-count{font-size:11px;font-family:var(--mono);color:var(--text3);padding:10px 18px 6px;letter-spacing:0.04em;text-transform:uppercase;}
+
+/* ── METRC Entry Queue ── */
+.mq-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);margin-bottom:24px;overflow:hidden;}
+.mq-hdr{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);}
+.mq-hdr-icon{width:16px;height:16px;stroke:var(--amber);fill:none;stroke-width:2;flex-shrink:0;}
+.mq-hdr-title{font-size:11px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);flex:1;}
+.mq-hdr-count{font-size:11px;font-family:var(--mono);background:var(--amber);color:#000;border-radius:8px;padding:1px 7px;font-weight:600;}
+.mq-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);}
+.mq-row:last-child{border-bottom:none;}
+.mq-row-info{flex:1;min-width:0;}
+.mq-tag{font-size:13px;font-family:var(--mono);font-weight:500;color:var(--text);margin-bottom:3px;word-break:break-all;}
+.mq-src-tag{font-size:11px;font-family:var(--mono);color:var(--text3);}
+.mq-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+.mq-enter-btn{flex-shrink:0;background:none;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-family:var(--mono);padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;letter-spacing:0.03em;transition:background 0.12s,color 0.12s;}
+.mq-enter-btn:hover{background:var(--accent);color:#000;}
+.mq-enter-btn:disabled{opacity:0.4;cursor:default;}
+.mq-clear{display:flex;align-items:center;gap:8px;padding:14px;color:var(--accent);font-size:12px;font-family:var(--mono);}
+.mq-clear svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;}
 .breakdown-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:4px 14px;margin-bottom:24px;}
 .bdown-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
 .bdown-row:last-child{border-bottom:none;}
@@ -387,6 +405,7 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
         <div class="kpi-tile"><div class="kpi-label">Avg Duration</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
         <div class="kpi-tile"><div class="kpi-label">Pending Tags</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
       </div>
+      <div id="metrc-queue-section"></div>
       <div class="sec-row"><span class="sec-heading">Output by Strain</span></div>
       <div id="strain-breakdown"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
       <div class="sec-row"><span class="sec-heading">By Material Type</span></div>
@@ -839,6 +858,8 @@ function renderNotifBell(){
   // Re-render list if panel is open
   const panel = document.getElementById('notif-panel');
   if(panel.classList.contains('vis')) renderNotifList();
+  // Keep METRC queue live
+  renderMetrcQueue();
 }
 
 function renderNotifList(){
@@ -930,6 +951,56 @@ function renderPendingTagsList(){
       </div>
     </div>`;
   }).join('');
+}
+
+/* ── METRC Entry Queue ── */
+function renderMetrcQueue(){
+  const el = document.getElementById('metrc-queue-section');
+  if(!el) return;
+  const queue = notifications.filter(n => n.type === 'output_tag_assigned' && !n.metrcEntered)
+    .sort((a,b) => (b.createdAt||0) - (a.createdAt||0)); // newest first
+  if(!queue.length){
+    el.innerHTML = '';
+    return;
+  }
+  const rows = queue.map(n => {
+    const outputTag = n.outputTag || '—';
+    const sourceTag = n.sourceTag || '—';
+    const strain = n.strain || 'Unknown strain';
+    const weight = n.outputWeight != null ? `${n.outputWeight}g` : '';
+    const tech = n.assignedByName || 'Tech';
+    const when = n.createdAt ? fmtRelTime(n.createdAt) : '';
+    return `<div class="mq-row" id="mqrow-${n.id}">
+      <div class="mq-row-info">
+        <div class="mq-tag">${outputTag}</div>
+        <div class="mq-src-tag">← ${sourceTag}</div>
+        <div class="mq-meta">${strain}${weight ? ' · ' + weight : ''} · ${tech} · ${when}</div>
+      </div>
+      <button class="mq-enter-btn" id="mqbtn-${n.id}" onclick="markMetrcEntered('${n.id}')">✓ Entered</button>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="sec-row" style="margin-bottom:0;">
+    <span class="sec-heading" style="display:flex;align-items:center;gap:6px;">
+      <svg class="mq-hdr-icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      METRC Entry Queue
+    </span>
+    <span class="mq-hdr-count">${queue.length}</span>
+  </div>
+  <div class="mq-card" style="margin-top:12px;">${rows}</div>`;
+}
+
+async function markMetrcEntered(id){
+  const btn = document.getElementById('mqbtn-' + id);
+  if(btn){ btn.textContent = 'Saving…'; btn.disabled = true; }
+  try {
+    await db.collection('notifications').doc(id).update({ metrcEntered: true });
+    // Row will disappear on next snapshot; optimistically hide now
+    const row = document.getElementById('mqrow-' + id);
+    if(row) row.style.opacity = '0.3';
+  } catch(e){
+    console.error('markMetrcEntered:', e);
+    if(btn){ btn.textContent = '✓ Entered'; btn.disabled = false; }
+  }
 }
 
 async function markNotifRead(id){
