@@ -3505,7 +3505,7 @@ async function submitOutputTag(){
         outWeightInitial:outputWeight,
         hteWeight:0,hteNewTag:false,hteTag:'',hteBatchId:'',
         flavor:'',extraOuts:[],
-        yieldPct:0,
+        yieldPct:inputWeight>0?Math.round((outputWeight/inputWeight)*1000)/10:0,
         notes:`Created from extraction run · Source: ${sourceTag}`,
         status:'purging',
         createdAt:Date.now(),
