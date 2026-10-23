@@ -833,10 +833,10 @@ function startNotifListener(){
   _notifUnsubscribe = db.collection('notifications')
     .where('facilityId', '==', FACILITY_ID)
     .where('targetRole', '==', 'manager')
-    .orderBy('createdAt', 'desc')
-    .limit(40)
+    .limit(60)
     .onSnapshot(snap => {
-      notifications = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      notifications = snap.docs.map(d => ({id: d.id, ...d.data()}))
+        .sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
       renderNotifBell();
     }, err => console.error('notifications listener:', err));
 }
@@ -959,10 +959,22 @@ function renderMetrcQueue(){
   if(!el) return;
   const queue = notifications.filter(n => n.type === 'output_tag_assigned' && !n.metrcEntered)
     .sort((a,b) => (b.createdAt||0) - (a.createdAt||0)); // newest first
+
+  const hdrHtml = `<div class="sec-row" style="margin-bottom:0;">
+    <span class="sec-heading" style="display:flex;align-items:center;gap:6px;">
+      <svg class="mq-hdr-icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      METRC Entry Queue
+    </span>
+    ${queue.length ? `<span class="mq-hdr-count">${queue.length}</span>` : ''}
+  </div>`;
+
   if(!queue.length){
-    el.innerHTML = '';
+    el.innerHTML = hdrHtml + `<div class="mq-card" style="margin-top:12px;">
+      <div class="mq-clear"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>All caught up — no pending METRC entries</div>
+    </div>`;
     return;
   }
+
   const rows = queue.map(n => {
     const outputTag = n.outputTag || '—';
     const sourceTag = n.sourceTag || '—';
@@ -979,14 +991,8 @@ function renderMetrcQueue(){
       <button class="mq-enter-btn" id="mqbtn-${n.id}" onclick="markMetrcEntered('${n.id}')">✓ Entered</button>
     </div>`;
   }).join('');
-  el.innerHTML = `<div class="sec-row" style="margin-bottom:0;">
-    <span class="sec-heading" style="display:flex;align-items:center;gap:6px;">
-      <svg class="mq-hdr-icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-      METRC Entry Queue
-    </span>
-    <span class="mq-hdr-count">${queue.length}</span>
-  </div>
-  <div class="mq-card" style="margin-top:12px;">${rows}</div>`;
+
+  el.innerHTML = hdrHtml + `<div class="mq-card" style="margin-top:12px;">${rows}</div>`;
 }
 
 async function markMetrcEntered(id){
