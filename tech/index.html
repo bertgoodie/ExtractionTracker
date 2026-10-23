@@ -3337,13 +3337,16 @@ function openOutputTagModal(sourceTag){
   const el=document.getElementById('otag-src');
   if(el)el.textContent=tagShort(sourceTag);
   document.getElementById('otag-tag').value='';
-  document.getElementById('otag-input-weight').value='';
   document.getElementById('otag-weight').value='';
 
   // Off-gas readiness check
   const offGasHours=settings.offGasHours||12;
   const now3=Date.now();
   const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt&&!r.outputTag);
+
+  // Pre-fill input weight from the extraction run record (entered at run start)
+  const runWithWeight=runs.find(r=>r.inputWeight>0);
+  document.getElementById('otag-input-weight').value=runWithWeight?.inputWeight||'';
   const banner=document.getElementById('otag-offgas-banner');
   const submitBtn=document.getElementById('otag-submit-btn');
   if(runs.length){
