@@ -1922,7 +1922,6 @@ function viewBatch(id){
         <button class="btn bp" onclick="advanceStatus('${b.id}')">${bAdvLabel}</button>
         <button class="btn bs" onclick="editBatch('${b.id}')">✎ Edit Batch</button>
       `:`
-        ${DOWNSTREAM_MAP[b.route]?`<button class="btn bs" onclick="downstream('${b.id}')">Create Downstream Batch →</button>`:''}
         <button class="btn bg2" onclick="reopenBatch('${b.id}')">↩ Reopen Batch</button>
       `}
       <button class="btn bg2" onclick="openStatusSheet('${b.id}')" style="width:100%;">Correct Status…</button>
