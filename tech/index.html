@@ -653,13 +653,6 @@ select.fi option{background:#1a2420;}
       <input id="ext-input-weight" class="fi" type="number" min="0" step="0.1" placeholder="e.g. 1500" autocomplete="off">
     </div>
 
-    <div class="fg" style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <label class="flabel" style="margin:0;">Material Type</label>
-        <button id="ext-mat-manage-btn" onclick="openMatManager()" hidden style="background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--accent);cursor:pointer;padding:2px 0;letter-spacing:0.06em;">⚙ MANAGE</button>
-      </div>
-      <select id="ext-material" class="fi"></select>
-    </div>
 
     <div class="fg" style="margin-bottom:16px;">
       <label class="flabel">Run #</label>
@@ -778,8 +771,22 @@ select.fi option{background:#1a2420;}
       <input id="bio-strain-input" class="fi" type="text" placeholder="e.g. Blue Dream" autocomplete="off" autocapitalize="words">
     </div>
     <div class="fg" style="margin-bottom:12px;">
-      <label class="flabel">Material Type</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <label class="flabel" style="margin:0;">Material Type</label>
+        <button id="bio-mat-manage-btn" onclick="openMatManager()" style="background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--accent);cursor:pointer;padding:2px 0;letter-spacing:0.06em;">⚙ MANAGE</button>
+      </div>
       <select id="bio-mattype-input" class="fi"></select>
+    </div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Source</label>
+      <div style="display:flex;gap:8px;">
+        <button id="bio-party-1st" class="btn bp" style="flex:1;font-size:12px;" onclick="setBioParty('1st')">1st Party</button>
+        <button id="bio-party-3rd" class="btn bg2" style="flex:1;font-size:12px;" onclick="setBioParty('3rd')">3rd Party</button>
+      </div>
+    </div>
+    <div class="fg" id="bio-vendor-fg" style="margin-bottom:12px;display:none;">
+      <label class="flabel">Vendor</label>
+      <input id="bio-vendor-input" class="fi" type="text" placeholder="e.g. Acme Farms" autocomplete="off" autocapitalize="words">
     </div>
     <div class="fg" style="margin-bottom:16px;">
       <label class="flabel">Weight (g) <span class="req">*</span></label>
@@ -3099,7 +3106,6 @@ function openExtStartModal(){
   document.getElementById('ext-strain').value='';
   document.getElementById('ext-notes').value='';
   document.getElementById('ext-input-weight').value='';
-  buildMatDropdown();
   document.getElementById('ext-start-modal').classList.add('vis');
   setTimeout(()=>document.getElementById('ext-src-tag')?.focus(),80);
 }
@@ -3118,19 +3124,9 @@ function scanExtSourceTag(){
     const existingRuns=extRuns.filter(r=>r.sourceTag===tag&&r.endedAt);
     const hasRun1=existingRuns.some(r=>(r.runNumber||1)===1);
     setExtRunNum(hasRun1?2:1);
-    // Auto-fill strain & material type from biomass inventory if known
+    // Auto-fill strain from biomass inventory if known
     const bio=bioInventory.find(b=>b.tag===tag.toUpperCase());
-    if(bio){
-      if(bio.strain) document.getElementById('ext-strain').value=bio.strain;
-      if(bio.materialType){
-        const matSel=document.getElementById('ext-material');
-        if(matSel){
-          // Rebuild dropdown first so the value is present
-          buildMatDropdown();
-          matSel.value=bio.materialType;
-        }
-      }
-    }
+    if(bio&&bio.strain) document.getElementById('ext-strain').value=bio.strain;
     document.getElementById('ext-start-modal').classList.add('vis');
     setTimeout(()=>document.getElementById('ext-strain')?.focus(),120);
   };
@@ -3142,7 +3138,8 @@ async function startExtRun(){
   const sourceTag=document.getElementById('ext-src-tag').value.trim();
   const strain=document.getElementById('ext-strain').value.trim();
   const notes=document.getElementById('ext-notes').value.trim();
-  const materialType=document.getElementById('ext-material')?.value||'';
+  const bio=bioInventory.find(b=>b.tag===sourceTag.toUpperCase());
+  const materialType=bio?.materialType||'';
   const inputWeightRaw=parseFloat(document.getElementById('ext-input-weight')?.value);
   const inputWeight=isNaN(inputWeightRaw)||inputWeightRaw<=0?null:inputWeightRaw;
   if(!sourceTag){toast('Scan or enter a source tag');return;}
@@ -3331,6 +3328,7 @@ function checkAndCreateOffGasNotifs(){
 
 /* Output tag assignment */
 let _outputTagSource=null;
+let _bioParty='1st';
 
 function openOutputTagModal(sourceTag){
   _outputTagSource=sourceTag;
@@ -3599,13 +3597,27 @@ function bioCardHtml(b){
   </div>`;
 }
 
+function setBioParty(party){
+  _bioParty=party;
+  document.getElementById('bio-party-1st').className=party==='1st'?'btn bp':'btn bg2';
+  document.getElementById('bio-party-3rd').className=party==='3rd'?'btn bp':'btn bg2';
+  const vFg=document.getElementById('bio-vendor-fg');
+  if(vFg) vFg.style.display=party==='3rd'?'':'none';
+  if(party==='3rd') setTimeout(()=>document.getElementById('bio-vendor-input')?.focus(),60);
+}
+
 function openAddBioModal(){
   document.getElementById('bio-tag-input').value='';
   document.getElementById('bio-strain-input').value='';
   document.getElementById('bio-weight-input').value='';
+  document.getElementById('bio-vendor-input').value='';
+  setBioParty('1st');
   const sel=document.getElementById('bio-mattype-input');
   const types=getMatTypes();
   sel.innerHTML=types.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
+  // manage button visibility
+  const mgBtn=document.getElementById('bio-mat-manage-btn');
+  if(mgBtn) mgBtn.textContent=(currentUserData?.role==='manager')?'⚙ MANAGE':'＋ ADD TYPE';
   document.getElementById('add-bio-modal').classList.add('vis');
   setTimeout(()=>document.getElementById('bio-tag-input')?.focus(),80);
 }
@@ -3631,8 +3643,11 @@ async function submitAddBio(){
   const strain=document.getElementById('bio-strain-input').value.trim();
   const materialType=document.getElementById('bio-mattype-input').value;
   const weight=parseFloat(document.getElementById('bio-weight-input').value)||0;
+  const party=_bioParty||'1st';
+  const vendor=party==='3rd'?document.getElementById('bio-vendor-input').value.trim():'';
   if(!tag){toast('Scan or enter the METRC tag');return;}
   if(!weight){toast('Enter the package weight');return;}
+  if(party==='3rd'&&!vendor){toast('Enter vendor name for 3rd party biomass');return;}
   const btn=document.getElementById('bio-submit-btn');
   btn.disabled=true;
   try{
@@ -3641,6 +3656,8 @@ async function submitAddBio(){
       tag,
       strain,
       materialType,
+      party,
+      vendor:vendor||'',
       originalWeight:weight,
       currentWeight:weight,
       addedByName:currentUserData?.name||currentUser?.email||'',
@@ -3684,17 +3701,16 @@ function saveMatTypes(types){
 }
 
 function buildMatDropdown(){
-  const sel=document.getElementById('ext-material');
+  // Rebuild the biomass-add modal dropdown (material type now lives there)
+  const sel=document.getElementById('bio-mattype-input');
   if(!sel)return;
   const types=getMatTypes();
   const cur=sel.value;
   sel.innerHTML=types.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
   if(cur&&types.includes(cur)) sel.value=cur;
-  // Managers see ⚙ MANAGE; techs see ＋ ADD (same modal, edit/delete hidden for techs)
-  const mgBtn=document.getElementById('ext-mat-manage-btn');
+  const mgBtn=document.getElementById('bio-mat-manage-btn');
   if(mgBtn){
     const isManager=(currentUserData?.role==='manager');
-    mgBtn.hidden=false;
     mgBtn.textContent=isManager?'⚙ MANAGE':'＋ ADD TYPE';
   }
 }
