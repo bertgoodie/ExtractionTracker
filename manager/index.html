@@ -201,6 +201,27 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .offgas-row-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
 .offgas-row input{width:68px;text-align:center;padding:8px;font-size:16px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;}
 .offgas-row input:focus{border-color:var(--accent);}
+
+/* ── Analytics ── */
+.period-tabs{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:4px;margin-bottom:20px;}
+.period-tab{flex:1;padding:7px 4px;background:none;border:1px solid transparent;border-radius:8px;font-size:11px;font-family:var(--mono);color:var(--text3);cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;transition:all 0.15s;}
+.period-tab.active{background:var(--bg4);color:var(--text);border-color:var(--border2);}
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:24px;}
+@media(min-width:480px){.kpi-grid{grid-template-columns:repeat(4,1fr);}}
+.kpi-tile{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 12px;}
+.kpi-label{font-size:10px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+.kpi-value{font-size:24px;font-family:var(--mono);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:5px;font-family:var(--mono);}
+.kpi-green{color:var(--accent);}
+.kpi-amber{color:var(--amber);}
+.breakdown-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:4px 14px;margin-bottom:24px;}
+.bdown-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.bdown-row:last-child{border-bottom:none;}
+.bdown-name{font-size:13px;flex:0 0 130px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bdown-bar-track{flex:1;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;}
+.bdown-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width 0.3s;}
+.bdown-val{font-family:var(--mono);font-size:11px;color:var(--text2);min-width:84px;text-align:right;white-space:nowrap;}
+.bdown-empty{padding:20px;text-align:center;font-size:12px;color:var(--text3);font-family:var(--mono);}
 </style>
 </head>
 <body>
@@ -314,45 +335,28 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
   <div id="body">
 
-    <!-- Coming soon banner -->
-    <div class="phase-banner">
-      <div class="phase-banner-icon">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      </div>
-      <div class="phase-banner-text">
-        <h2>Manager Dashboard</h2>
-        <p>Analytics and reporting arrive in Phase 3. Team management is live now.</p>
-      </div>
+    <!-- Analytics -->
+    <div class="sec-row" style="margin-bottom:14px;"><span class="sec-heading">Analytics</span></div>
+    <div class="period-tabs">
+      <button class="period-tab active" data-period="week" onclick="setPeriod('week')">This Week</button>
+      <button class="period-tab" data-period="today" onclick="setPeriod('today')">Today</button>
+      <button class="period-tab" data-period="month" onclick="setPeriod('month')">This Month</button>
+    </div>
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi-tile"><div class="kpi-label">Runs</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
+      <div class="kpi-tile"><div class="kpi-label">Output</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
+      <div class="kpi-tile"><div class="kpi-label">Avg Duration</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
+      <div class="kpi-tile"><div class="kpi-label">Pending Tags</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
     </div>
 
-    <!-- Analytics placeholders -->
-    <div class="sec-row"><span class="sec-heading">Coming in Phase 3</span></div>
-    <div class="dash-grid">
-      <div class="dash-card">
-        <div class="dash-card-title">Yield Trends</div>
-        <div class="dash-placeholder"><span>Weekly / Monthly / Quarterly</span></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-title">Biomass Throughput</div>
-        <div class="dash-placeholder"><span>By strain · by product</span></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-title">Tag Assignment Status</div>
-        <div class="dash-placeholder"><span>Untagged · In Progress · Complete</span></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-title">Inventory Turnover</div>
-        <div class="dash-placeholder"><span>Crude · Badder · Diamonds</span></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-title">Processing Times</div>
-        <div class="dash-placeholder"><span>Stage 1 · 2 · 3 averages</span></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-title">Tech Activity Log</div>
-        <div class="dash-placeholder"><span>Per-operator history</span></div>
-      </div>
-    </div>
+    <div class="sec-row"><span class="sec-heading">Output by Strain</span></div>
+    <div id="strain-breakdown"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
+
+    <div class="sec-row"><span class="sec-heading">By Material Type</span></div>
+    <div id="mattype-breakdown"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
+
+    <div class="sec-row"><span class="sec-heading">Tech Activity</span></div>
+    <div id="tech-activity"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
 
     <!-- Team management — live now -->
     <div class="sec-row">
@@ -833,6 +837,105 @@ async function markAllRead(){
   try { await batch.commit(); } catch(e){ console.error('markAllRead:', e); }
 }
 
+/* ── Analytics ── */
+let mgExtRuns = [];
+let _mgExtUnsubscribe = null;
+let _mgPeriod = 'week';
+
+function startExtRunsListener(){
+  if(_mgExtUnsubscribe) _mgExtUnsubscribe();
+  _mgExtUnsubscribe = db.collection('extraction_runs')
+    .where('facilityId', '==', FACILITY_ID)
+    .onSnapshot(snap => {
+      mgExtRuns = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      refreshAnalytics();
+    }, err => console.error('mgExtRuns listener:', err));
+}
+
+function getPeriodStart(){
+  const now = new Date();
+  if(_mgPeriod === 'today'){
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }
+  if(_mgPeriod === 'week'){
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    return d.getTime();
+  }
+  return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+}
+
+function setPeriod(p){
+  _mgPeriod = p;
+  document.querySelectorAll('.period-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.period === p));
+  refreshAnalytics();
+}
+
+function fmtDurShort(sec){
+  if(!sec) return '—';
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
+function refreshAnalytics(){
+  const start = getPeriodStart();
+  const runs = mgExtRuns.filter(r => r.endedAt && r.endedAt >= start);
+  const pending = mgExtRuns.filter(r => r.endedAt && !r.outputTag);
+  renderKPIs(runs, pending);
+  renderBreakdown('strain-breakdown', groupBy(runs, r => r.strain||'Unknown'));
+  renderBreakdown('mattype-breakdown', groupBy(runs, r => r.materialType||'Unspecified'));
+  renderBreakdown('tech-activity', groupBy(runs, r => r.techName||'Unknown'));
+}
+
+function groupBy(runs, keyFn){
+  const m = {};
+  runs.forEach(r => {
+    const k = keyFn(r);
+    if(!m[k]) m[k] = {runs:0, output:0, durSec:0, durCount:0};
+    m[k].runs++;
+    m[k].output += r.outputWeight || 0;
+    if(r.durationSec){ m[k].durSec += r.durationSec; m[k].durCount++; }
+  });
+  return Object.entries(m).sort((a,b) => b[1].output - a[1].output || b[1].runs - a[1].runs);
+}
+
+function renderKPIs(runs, pending){
+  const totalRuns = runs.length;
+  const taggedRuns = runs.filter(r => r.outputWeight > 0);
+  const totalOutput = taggedRuns.reduce((s,r) => s + (r.outputWeight||0), 0);
+  const durRuns = runs.filter(r => r.durationSec);
+  const avgDur = durRuns.length ? Math.round(durRuns.reduce((s,r) => s + r.durationSec, 0) / durRuns.length) : 0;
+  const pendingCount = pending.length;
+  const sub = _mgPeriod==='today'?'today':_mgPeriod==='week'?'this week':'this month';
+  const tiles = [
+    {label:'Runs', value: totalRuns || '—', sub, cls:''},
+    {label:'Output', value: totalOutput > 0 ? totalOutput.toFixed(1)+'g' : '—', sub:'crude oil', cls: totalOutput > 0 ? 'kpi-green' : ''},
+    {label:'Avg Duration', value: fmtDurShort(avgDur), sub:'per run', cls:''},
+    {label:'Pending Tags', value: pendingCount || '—', sub: pendingCount ? 'need assignment' : 'all clear', cls: pendingCount > 0 ? 'kpi-amber' : 'kpi-green'},
+  ];
+  document.getElementById('kpi-grid').innerHTML = tiles.map(t =>
+    `<div class="kpi-tile"><div class="kpi-label">${t.label}</div><div class="kpi-value ${t.cls}">${t.value}</div><div class="kpi-sub">${t.sub}</div></div>`
+  ).join('');
+}
+
+function renderBreakdown(elId, entries){
+  const el = document.getElementById(elId);
+  if(!entries.length){
+    el.innerHTML = '<div class="breakdown-card"><div class="bdown-empty">No data for this period</div></div>';
+    return;
+  }
+  const maxOutput = Math.max(...entries.map(([,v]) => v.output), 1);
+  el.innerHTML = `<div class="breakdown-card">${entries.map(([name, d]) =>
+    `<div class="bdown-row">
+      <div class="bdown-name">${name}</div>
+      <div class="bdown-bar-track"><div class="bdown-bar-fill" style="width:${maxOutput>0?(d.output/maxOutput*100).toFixed(1):0}%"></div></div>
+      <div class="bdown-val">${d.output > 0 ? d.output.toFixed(1)+'g' : '—'} · ${d.runs} run${d.runs!==1?'s':''}</div>
+    </div>`
+  ).join('')}</div>`;
+}
+
 /* ── Auth guard — manager role required ── */
 auth.onAuthStateChanged(async user => {
   if(!user){ window.location.href = '../'; return; }
@@ -855,6 +958,7 @@ auth.onAuthStateChanged(async user => {
   renderProductionSettings();
   loadUsers();
   try{ startNotifListener(); }catch(e){ console.error('notif listener failed:', e); }
+  try{ startExtRunsListener(); }catch(e){ console.error('extRuns listener failed:', e); }
 });
 </script>
 </body>
