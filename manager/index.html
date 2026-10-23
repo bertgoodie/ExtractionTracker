@@ -28,7 +28,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
 /* ── Layout ── */
 #app{min-height:100%;display:flex;flex-direction:column;}
-#body{flex:1;padding:20px 16px 40px;max-width:900px;margin:0 auto;width:100%;}
+#body{flex:1;padding:20px 16px 80px;max-width:900px;margin:0 auto;width:100%;}
+/* ── Bottom tab bar ── */
+#tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border2);display:flex;z-index:200;padding-bottom:env(safe-area-inset-bottom,0);}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px 12px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:9px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;transition:color 0.15s;}
+.tab-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;margin-bottom:1px;}
+.tab-btn.active{color:var(--accent);}
+.tab-section{display:none;}
+.tab-section.active{display:block;}
 
 /* ── Header ── */
 #hdr{height:var(--hdr);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;position:sticky;top:0;z-index:20;}
@@ -347,54 +354,51 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
   <div id="body">
 
-    <!-- Analytics -->
-    <div class="sec-row" style="margin-bottom:14px;"><span class="sec-heading">Analytics</span></div>
-    <div class="period-tabs">
-      <button class="period-tab active" data-period="week" onclick="setPeriod('week')">This Week</button>
-      <button class="period-tab" data-period="today" onclick="setPeriod('today')">Today</button>
-      <button class="period-tab" data-period="month" onclick="setPeriod('month')">This Month</button>
-    </div>
-    <div class="kpi-grid" id="kpi-grid">
-      <div class="kpi-tile"><div class="kpi-label">Runs</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
-      <div class="kpi-tile"><div class="kpi-label">Output</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
-      <div class="kpi-tile"><div class="kpi-label">Avg Duration</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
-      <div class="kpi-tile"><div class="kpi-label">Pending Tags</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
-    </div>
-
-    <div class="sec-row"><span class="sec-heading">Output by Strain</span></div>
-    <div id="strain-breakdown"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
-
-    <div class="sec-row"><span class="sec-heading">By Material Type</span></div>
-    <div id="mattype-breakdown"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
-
-    <div class="sec-row"><span class="sec-heading">Tech Activity</span></div>
-    <div id="tech-activity"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
-
-    <!-- Extraction Runs list -->
-    <div class="sec-row" style="margin-top:4px;">
-      <span class="sec-heading">Extraction Runs</span>
-      <span id="runs-list-count" style="font-size:11px;font-family:var(--mono);color:var(--text3);"></span>
-    </div>
-    <div id="runs-list"><div class="run-list-card"><div class="runs-list-empty">Loading…</div></div></div>
-
-    <!-- Team management — live now -->
-    <div class="sec-row">
-      <span class="sec-heading">Team</span>
-      <button class="sec-action" onclick="openAddUser()">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Member
-      </button>
-    </div>
-    <div id="user-list">
-      <div class="user-list-empty">Loading team…</div>
+    <!-- ── Analytics tab ── -->
+    <div class="tab-section active" id="tab-analytics">
+      <div class="period-tabs" style="margin-bottom:16px;">
+        <button class="period-tab active" data-period="week" onclick="setPeriod('week')">This Week</button>
+        <button class="period-tab" data-period="today" onclick="setPeriod('today')">Today</button>
+        <button class="period-tab" data-period="month" onclick="setPeriod('month')">This Month</button>
+      </div>
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-tile"><div class="kpi-label">Runs</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
+        <div class="kpi-tile"><div class="kpi-label">Output</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
+        <div class="kpi-tile"><div class="kpi-label">Avg Duration</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
+        <div class="kpi-tile"><div class="kpi-label">Pending Tags</div><div class="kpi-value">—</div><div class="kpi-sub">loading</div></div>
+      </div>
+      <div class="sec-row"><span class="sec-heading">Output by Strain</span></div>
+      <div id="strain-breakdown"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
+      <div class="sec-row"><span class="sec-heading">By Material Type</span></div>
+      <div id="mattype-breakdown"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
+      <div class="sec-row"><span class="sec-heading">Tech Activity</span></div>
+      <div id="tech-activity"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
+      <div class="sec-row" style="margin-top:4px;">
+        <span class="sec-heading">Extraction Runs</span>
+        <span id="runs-list-count" style="font-size:11px;font-family:var(--mono);color:var(--text3);"></span>
+      </div>
+      <div id="runs-list"><div class="run-list-card"><div class="runs-list-empty">Loading…</div></div></div>
     </div>
 
-    <!-- Production Settings -->
-    <div class="sec-row settings-section" style="margin-top:4px;">
-      <span class="sec-heading">Production Settings</span>
+    <!-- ── Team tab ── -->
+    <div class="tab-section" id="tab-team">
+      <div class="sec-row">
+        <span class="sec-heading">Team</span>
+        <button class="sec-action" onclick="openAddUser()">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Member
+        </button>
+      </div>
+      <div id="user-list">
+        <div class="user-list-empty">Loading team…</div>
+      </div>
     </div>
 
-    <div class="settings-section">
+    <!-- ── Settings tab ── -->
+    <div class="tab-section" id="tab-settings">
+      <div class="sec-row" style="margin-bottom:16px;">
+        <span class="sec-heading">Production Settings</span>
+      </div>
       <p class="settings-note">OFF-GAS PERIOD · MINIMUM WAIT TIME BEFORE OUTPUT TAG ASSIGNMENT</p>
       <div class="offgas-row">
         <div class="offgas-row-text">
@@ -404,33 +408,47 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
         <input id="offgas-hours" type="number" min="1" max="48" step="1" value="12" inputmode="numeric">
         <span style="font-size:12px;color:var(--text3);font-family:var(--mono);">hrs</span>
       </div>
-
       <p class="settings-note">BATCH ID PRODUCT CODES · DIAMONDS IS ALWAYS THCa-POW</p>
       <div class="thresh-card" style="padding:8px 14px;" id="code-cards"></div>
-
       <p class="settings-note" style="margin-top:16px;">YIELD THRESHOLDS · GREEN = GOOD · AMBER = OK · RED = LOW</p>
       <div id="thresh-cards"></div>
-
       <div class="settings-save-row">
         <button class="btn btn-primary" onclick="saveProductionSettings()" style="flex:1;max-width:220px;">Save Settings</button>
         <button class="btn btn-cancel" onclick="resetProductionSettings()" style="flex:0 0 auto;padding:11px 16px;">Reset to Defaults</button>
       </div>
+      <div style="margin-top:24px;">
+        <div class="sec-row"><span class="sec-heading">Navigation</span></div>
+        <a class="nav-shortcut" href="../tech/">
+          <div class="nav-shortcut-icon">
+            <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+          </div>
+          <div class="nav-shortcut-text">
+            <div class="nav-shortcut-label">Tech View</div>
+            <div class="nav-shortcut-sub">Batch creation · Tag assignment · Weight updates</div>
+          </div>
+          <span class="nav-shortcut-arrow">→</span>
+        </a>
+      </div>
     </div>
 
-    <!-- Quick access -->
-    <div class="sec-row" style="margin-top:4px;"><span class="sec-heading">Quick Access</span></div>
-    <a class="nav-shortcut" href="../tech/">
-      <div class="nav-shortcut-icon">
-        <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
-      </div>
-      <div class="nav-shortcut-text">
-        <div class="nav-shortcut-label">Tech View</div>
-        <div class="nav-shortcut-sub">Batch creation · Tag assignment · Weight updates</div>
-      </div>
-      <span class="nav-shortcut-arrow">→</span>
-    </a>
-
   </div>
+
+  <!-- Bottom tab bar -->
+  <nav id="tab-bar">
+    <button class="tab-btn active" data-tab="analytics" onclick="setTab('analytics')">
+      <svg viewBox="0 0 24 24"><rect x="2" y="12" width="4" height="10" rx="1"/><rect x="9" y="7" width="4" height="15" rx="1"/><rect x="16" y="3" width="4" height="19" rx="1"/></svg>
+      Analytics
+    </button>
+    <button class="tab-btn" data-tab="team" onclick="setTab('team')">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><path d="M16 3.13a4 4 0 010 7.75"/><path d="M21 21v-2a4 4 0 00-3-3.87"/></svg>
+      Team
+    </button>
+    <button class="tab-btn" data-tab="settings" onclick="setTab('settings')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+
 </div>
 
 <script>
@@ -859,6 +877,15 @@ async function markAllRead(){
     });
   });
   try { await batch.commit(); } catch(e){ console.error('markAllRead:', e); }
+}
+
+/* ── Tab navigation ── */
+function setTab(name){
+  document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  const sec = document.getElementById('tab-' + name);
+  if(sec) sec.classList.add('active');
+  window.scrollTo({top:0,behavior:'instant'});
 }
 
 /* ── Analytics ── */
