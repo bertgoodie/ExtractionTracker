@@ -366,7 +366,8 @@ select.fi option{background:#1a2420;}
 .ext-start-modal.vis{display:flex;}
 /* ── Notification system ── */
 .notif-badge-wrap{position:relative;}
-.notif-count{position:absolute;top:-5px;right:-5px;background:#ef5350;color:#fff;font-family:var(--mono);font-size:9px;font-weight:500;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
+.notif-count{position:absolute;top:-5px;right:-5px;background:#ef5350;color:#fff;font-family:var(--mono);font-size:9px;font-weight:500;min-width:15px;height:15px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
+.notif-count:not([hidden]){display:flex;}
 .notif-panel{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;padding:20px;}
 .notif-panel.vis{display:flex;}
 .notif-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,0.65);}
