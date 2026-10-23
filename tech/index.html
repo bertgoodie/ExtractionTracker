@@ -543,13 +543,13 @@ select.fi option{background:#1a2420;}
     </div>
     <div class="snav-item" id="ntab-biomass" onclick="goTo('biomass');closeSideNav()">
       <svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none;">
-        <path d="M12 13 Q10.5 8 12 3 Q13.5 8 12 13Z"/>
-        <path d="M12 13 Q10.5 8 12 3 Q13.5 8 12 13Z" transform="rotate(51,12,13)"/>
-        <path d="M12 13 Q10.5 8 12 3 Q13.5 8 12 13Z" transform="rotate(102,12,13)"/>
-        <path d="M12 13 Q10.5 8 12 3 Q13.5 8 12 13Z" transform="rotate(153,12,13)"/>
-        <path d="M12 13 Q10.5 8 12 3 Q13.5 8 12 13Z" transform="rotate(-51,12,13)"/>
-        <path d="M12 13 Q10.5 8 12 3 Q13.5 8 12 13Z" transform="rotate(-102,12,13)"/>
-        <path d="M12 13 Q10.5 8 12 3 Q13.5 8 12 13Z" transform="rotate(-153,12,13)"/>
+        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z"/>
+        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(30,12,12)"/>
+        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(75,12,12)"/>
+        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(115,12,12)"/>
+        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(-30,12,12)"/>
+        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(-75,12,12)"/>
+        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(-115,12,12)"/>
       </svg>
       Biomass
     </div>
@@ -739,14 +739,6 @@ select.fi option{background:#1a2420;}
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="2" y="3" width="4" height="18" rx="1"/><rect x="8" y="3" width="2" height="18" rx="0.5"/><rect x="12" y="3" width="3" height="18" rx="0.5"/><rect x="17" y="3" width="5" height="18" rx="1"/></svg>
         </button>
       </div>
-    </div>
-    <div class="fg" style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-        <label class="flabel" style="margin:0;">Input Weight (g) — source pkg</label>
-        <span class="bio-avail-hint" id="otag-bio-avail"></span>
-      </div>
-      <input id="otag-input-weight" class="fi" type="number" placeholder="0.0" step="0.1" min="0" inputmode="decimal">
-      <button class="bio-use-all-btn" id="otag-use-all-btn" hidden onclick="bioUseAll()">↑ Use all available weight</button>
     </div>
     <div class="fg" style="margin-bottom:12px;">
       <label class="flabel">Output Weight (g) — crude oil</label>
@@ -3360,9 +3352,6 @@ function openOutputTagModal(sourceTag){
   const now3=Date.now();
   const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt&&!r.outputTag);
 
-  // Pre-fill input weight from the extraction run record (entered at run start)
-  const runWithWeight=runs.find(r=>r.inputWeight>0);
-  document.getElementById('otag-input-weight').value=runWithWeight?.inputWeight||'';
   const banner=document.getElementById('otag-offgas-banner');
   const submitBtn=document.getElementById('otag-submit-btn');
   if(runs.length){
@@ -3411,20 +3400,6 @@ function openOutputTagModal(sourceTag){
     }
   }
 
-  // Show available biomass weight for this sourceTag
-  const bioEntry=bioInventory.find(b=>b.tag===sourceTag&&b.status!=='depleted');
-  const availEl=document.getElementById('otag-bio-avail');
-  const useAllBtn=document.getElementById('otag-use-all-btn');
-  if(availEl){
-    if(bioEntry&&(bioEntry.currentWeight||0)>0){
-      availEl.textContent=`${bioEntry.currentWeight.toFixed(1)}g available`;
-      if(useAllBtn) useAllBtn.hidden=false;
-    } else {
-      availEl.textContent='';
-      if(useAllBtn) useAllBtn.hidden=true;
-    }
-  }
-
   document.getElementById('output-tag-modal').classList.add('vis');
   setTimeout(()=>{ if(!submitBtn.disabled) document.getElementById('otag-tag')?.focus(); },80);
 }
@@ -3455,7 +3430,6 @@ async function submitOutputTag(){
   const sourceTag=_outputTagSource;
   if(!sourceTag)return;
   const outputTag=document.getElementById('otag-tag').value.trim().toUpperCase();
-  const inputWeight=parseFloat(document.getElementById('otag-input-weight').value)||0;
   const outputWeight=parseFloat(document.getElementById('otag-weight').value)||0;
   const batchId=document.getElementById('otag-batchid').value.trim().toUpperCase();
   if(!outputTag){toast('Enter the output METRC tag');return;}
@@ -3465,6 +3439,8 @@ async function submitOutputTag(){
   if(!runs.length)return;
   runs.sort((a,b)=>(b.runNumber||1)-(a.runNumber||1));
   const lastRun=runs[0];
+  // Pull input weight from extraction run records (entered when run was started)
+  const inputWeight=runs.reduce((s,r)=>s+(parseFloat(r.inputWeight)||0),0);
   const techName=currentUserData?.name||currentUser?.email||'';
   const btn=document.getElementById('otag-submit-btn');
   btn.disabled=true;
@@ -3744,16 +3720,6 @@ async function submitAddBio(){
     toast('⚠ Could not save — check connection');
   }finally{
     btn.disabled=false;
-  }
-}
-
-function bioUseAll(){
-  const sourceTag=_outputTagSource;
-  if(!sourceTag)return;
-  const bio=bioInventory.find(b=>b.tag===sourceTag&&b.status!=='depleted');
-  if(bio&&(bio.currentWeight||0)>0){
-    document.getElementById('otag-input-weight').value=bio.currentWeight.toFixed(1);
-    document.getElementById('otag-input-weight').focus();
   }
 }
 
