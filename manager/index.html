@@ -255,6 +255,11 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .mq-tag{font-size:13px;font-family:var(--mono);font-weight:500;color:var(--text);margin-bottom:3px;word-break:break-all;}
 .mq-src-tag{font-size:11px;font-family:var(--mono);color:var(--text3);}
 .mq-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+.mq-weights{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;align-items:baseline;}
+.mq-wt-lbl{font-size:9px;font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);}
+.mq-wt-val{font-size:12px;font-family:var(--mono);color:var(--text2);margin-left:4px;}
+.mq-wt-out{color:var(--accent);}
+.mq-wt-batch{color:var(--text);}
 .mq-enter-btn{flex-shrink:0;background:none;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-family:var(--mono);padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;letter-spacing:0.03em;transition:background 0.12s,color 0.12s;}
 .mq-enter-btn:hover{background:var(--accent);color:#000;}
 .mq-enter-btn:disabled{opacity:0.4;cursor:default;}
@@ -979,14 +984,20 @@ function renderMetrcQueue(){
     const outputTag = n.outputTag || '—';
     const sourceTag = n.sourceTag || '—';
     const strain = n.strain || 'Unknown strain';
-    const weight = n.outputWeight != null ? `${n.outputWeight}g` : '';
+    const inWt  = n.inputWeight  != null ? `${n.inputWeight}g`  : '—';
+    const outWt = n.outputWeight != null ? `${n.outputWeight}g` : '—';
+    const batch = n.batchId || '—';
     const tech = n.assignedByName || 'Tech';
     const when = n.createdAt ? fmtRelTime(n.createdAt) : '';
     return `<div class="mq-row" id="mqrow-${n.id}">
       <div class="mq-row-info">
         <div class="mq-tag">${outputTag}</div>
-        <div class="mq-src-tag">← ${sourceTag}</div>
-        <div class="mq-meta">${strain}${weight ? ' · ' + weight : ''} · ${tech} · ${when}</div>
+        <div class="mq-src-tag">← ${sourceTag} · ${strain} · ${tech} · ${when}</div>
+        <div class="mq-weights">
+          <span class="mq-wt-lbl">Input</span><span class="mq-wt-val">${inWt}</span>
+          <span class="mq-wt-lbl">Final</span><span class="mq-wt-val mq-wt-out">${outWt}</span>
+          <span class="mq-wt-lbl">Batch</span><span class="mq-wt-val mq-wt-batch">${batch}</span>
+        </div>
       </div>
       <button class="mq-enter-btn" id="mqbtn-${n.id}" onclick="markMetrcEntered('${n.id}')">✓ Entered</button>
     </div>`;

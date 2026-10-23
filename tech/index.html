@@ -703,7 +703,11 @@ select.fi option{background:#1a2420;}
       </div>
     </div>
     <div class="fg" style="margin-bottom:12px;">
-      <label class="flabel">Output Weight (g)</label>
+      <label class="flabel">Input Weight (g) — source pkg</label>
+      <input id="otag-input-weight" class="fi" type="number" placeholder="0.0" step="0.1" min="0">
+    </div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Output Weight (g) — crude oil</label>
       <input id="otag-weight" class="fi" type="number" placeholder="0.0" step="0.1" min="0">
     </div>
     <div class="fg" style="margin-bottom:16px;">
@@ -3232,6 +3236,7 @@ function openOutputTagModal(sourceTag){
   const el=document.getElementById('otag-src');
   if(el)el.textContent=tagShort(sourceTag);
   document.getElementById('otag-tag').value='';
+  document.getElementById('otag-input-weight').value='';
   document.getElementById('otag-weight').value='';
 
   // Off-gas readiness check
@@ -3316,6 +3321,7 @@ async function submitOutputTag(){
   const sourceTag=_outputTagSource;
   if(!sourceTag)return;
   const outputTag=document.getElementById('otag-tag').value.trim().toUpperCase();
+  const inputWeight=parseFloat(document.getElementById('otag-input-weight').value)||0;
   const outputWeight=parseFloat(document.getElementById('otag-weight').value)||0;
   const batchId=document.getElementById('otag-batchid').value.trim().toUpperCase();
   if(!outputTag){toast('Enter the output METRC tag');return;}
@@ -3332,6 +3338,7 @@ async function submitOutputTag(){
     // 1. Update extraction run with output tag
     await db.collection('extraction_runs').doc(lastRun.id).update({
       outputTag,
+      inputWeight,
       outputWeight,
       batchId,
       outputTagAssignedAt:Date.now(),
@@ -3352,9 +3359,9 @@ async function submitOutputTag(){
         biomassType:'',
         date:todayStr(),
         tech:techName,
-        srcPkgs:[{tag:sourceTag,weight:0}],
+        srcPkgs:[{tag:sourceTag,weight:inputWeight}],
         parentIds:[],
-        totalIn:0,
+        totalIn:inputWeight,
         outTag:outputTag,
         outWeight:outputWeight,
         outWeightInitial:outputWeight,
@@ -3386,6 +3393,7 @@ async function submitOutputTag(){
       targetRole:'manager',
       sourceTag,
       outputTag,
+      inputWeight,
       outputWeight,
       batchId,
       strain:lastRun.strain||'',
