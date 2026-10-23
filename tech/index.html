@@ -451,12 +451,8 @@ select.fi option{background:#1a2420;}
     <div id="screen-dashboard" class="screen active">
       <div class="dash-strip" style="margin-top:0;"><div class="ds-label">Biomass · This Week</div><div class="ds-line"></div></div>
       <div id="stats-biomass-week" class="sgrid"></div>
-      <div class="dash-strip"><div class="ds-label">Downstream · This Week</div><div class="ds-line"></div></div>
-      <div id="stats-downstream-week" class="sgrid"></div>
       <div class="dash-strip"><div class="ds-label">Biomass · Today</div><div class="ds-line"></div></div>
       <div id="stats-biomass" class="sgrid"></div>
-      <div class="dash-strip"><div class="ds-label">Downstream · Today</div><div class="ds-line"></div></div>
-      <div id="stats-downstream" class="sgrid"></div>
       <div class="dash-strip"><div class="ds-label">Tag Assignment Pending</div><div class="ds-line"></div></div>
       <div id="dash-tag-pending"></div>
       <div class="dash-strip"><div class="ds-label">Active Batches</div><div class="ds-line"></div><button class="view-all-btn" onclick="goTo('active-log')">View All →</button></div>
@@ -1333,19 +1329,6 @@ function renderDash(){
     <div class="scard"><div class="slabel">Biomass In</div><div class="sval sm">${ws1In.toFixed(0)}<span class="sunit">g</span></div></div>
     <div class="scard"><div class="slabel">Crude/Badder Out</div><div class="sval sm">${ws1Out.toFixed(1)}<span class="sunit">g</span></div></div>
   `;
-  const wDiamBatch=weekAll.filter(b=>b.route==='diamonds');
-  const wDiamG=wDiamBatch.reduce((s,b)=>s+(b.outWeight||0),0);
-  const wHteG=wDiamBatch.reduce((s,b)=>s+(b.hteWeight||0),0);
-  const wLqdG=weekAll.filter(b=>b.route==='liquid-diamonds').reduce((s,b)=>s+(b.outWeight||0),0);
-  const wVapeAll=weekAll.filter(b=>VAPE_ROUTES.includes(b.route));
-  const wVapeG=wVapeAll.reduce((s,b)=>s+totalVapeWeight(b),0);
-  const wDashVal=(g)=>g>0?`${g.toFixed(1)}<span class="sunit">g</span>`:`<span style="color:var(--text3);font-size:16px;">—</span>`;
-  document.getElementById('stats-downstream-week').innerHTML=`
-    <div class="scard"><div class="slabel">💎 Diamonds</div><div class="sval sm">${wDashVal(wDiamG)}</div></div>
-    <div class="scard"><div class="slabel">🛢 HTE</div><div class="sval sm">${wDashVal(wHteG)}</div></div>
-    <div class="scard"><div class="slabel">💧 Liq Diamonds</div><div class="sval sm">${wDashVal(wLqdG)}</div></div>
-    <div class="scard"><div class="slabel">💨 Vape Out</div><div class="sval sm">${wVapeG>0?`${wVapeG.toFixed(1)}<span class="sunit">g</span><span style="font-size:11px;color:var(--text3);margin-left:4px;">(${wVapeAll.length})</span>`:'<span style="color:var(--text3);font-size:16px;">—</span>'}</div></div>
-  `;
 
   // ── Daily stats ──
   const s1=todayAll.filter(b=>ROUTES[b.route]?.stage===1);
@@ -1360,27 +1343,6 @@ function renderDash(){
     <div class="scard"><div class="slabel">Crude/Badder Out</div><div class="sval sm">${s1Out.toFixed(1)}<span class="sunit">g</span></div></div>
   `;
 
-  // Downstream
-  const diamBatch=todayAll.filter(b=>b.route==='diamonds');
-  const diamG=diamBatch.reduce((s,b)=>s+(b.outWeight||0),0);
-  const hteOnCrudeG=diamBatch.filter(b=>!b.hteNewTag).reduce((s,b)=>s+(b.hteWeight||0),0);
-  const hteNewTagG=diamBatch.filter(b=>b.hteNewTag).reduce((s,b)=>s+(b.hteWeight||0),0);
-  const hteG=hteOnCrudeG+hteNewTagG;
-  const lqdG=todayAll.filter(b=>b.route==='liquid-diamonds').reduce((s,b)=>s+(b.outWeight||0),0);
-  const vapeToday=todayAll.filter(b=>VAPE_ROUTES.includes(b.route));
-  const vapeG=vapeToday.reduce((s,b)=>s+totalVapeWeight(b),0);
-
-  const dashVal=(g,unit='g')=>g>0?`${g.toFixed(1)}<span class="sunit">${unit}</span>`:`<span style="color:var(--text3);font-size:16px;">—</span>`;
-  const hteLabel=hteNewTagG>0&&hteOnCrudeG>0
-    ?`🛢 HTE (${hteOnCrudeG.toFixed(1)}g crude + ${hteNewTagG.toFixed(1)}g new)`
-    :hteNewTagG>0?'🛢 HTE (new tag)':'🛢 HTE (crude tag)';
-
-  document.getElementById('stats-downstream').innerHTML=`
-    <div class="scard"><div class="slabel">💎 Diamonds</div><div class="sval sm">${dashVal(diamG)}</div></div>
-    <div class="scard"><div class="slabel" style="font-size:8px;">${hteLabel}</div><div class="sval sm">${dashVal(hteG)}</div></div>
-    <div class="scard"><div class="slabel">💧 Liq Diamonds</div><div class="sval sm">${dashVal(lqdG)}</div></div>
-    <div class="scard"><div class="slabel">💨 Vape Out</div><div class="sval sm">${vapeG>0?`${vapeG.toFixed(1)}<span class="sunit">g</span><span style="font-size:11px;color:var(--text3);margin-left:4px;">(${vapeToday.length})</span>`:'<span style="color:var(--text3);font-size:16px;">—</span>'}</div></div>
-  `;
 
   // ── Tag Assignment Pending ──
   checkAndCreateOffGasNotifs();
@@ -2013,12 +1975,9 @@ function s1(c,a){
     </div>`;
   };
   c.innerHTML=`
-    <div class="sdiv"><div class="sdiv-l">Stage 1 · From Biomass</div><div class="sdiv-line"></div></div>
     ${rc('crude')}${rc('live-badder')}${rc('cured-badder')}
-    <div class="sdiv"><div class="sdiv-l">Stage 2 · From Crude / Badder</div><div class="sdiv-line"></div></div>
-    ${rc('diamonds')}${rc('lr-vape')}${rc('cr-vape')}
-    <div class="sdiv"><div class="sdiv-l">Stage 3 · From Diamonds</div><div class="sdiv-line"></div></div>
-    ${rc('liquid-diamonds')}${rc('ld-vape')}`;
+    <div class="sdiv"><div class="sdiv-l">Downstream Processing</div><div class="sdiv-line"></div></div>
+    ${rc('diamonds')}${rc('lr-vape')}${rc('cr-vape')}${rc('liquid-diamonds')}${rc('ld-vape')}`;
   a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${!draft.route?'disabled':''}>Continue →</button></div>`;
 }
 function pickRoute(k){
@@ -2181,6 +2140,11 @@ function s3(c,a){
       document.getElementById('hdr-title').textContent='Source Crude Package';
       const srcBatch=pkg?batches.find(b=>b.outTag===pkg.tag):null;
       c.innerHTML=`
+        <div class="row2">
+          <div class="fg"><label class="flabel">Date <span class="req">*</span></label><input id="f-date-ds3" class="fi" type="date" value="${draft.date}"></div>
+          <div class="fg"><label class="flabel">Tech <span class="req">*</span></label><input id="f-tech-ds3" class="fi" type="text" placeholder="Name" value="${draft.tech}"></div>
+        </div>
+        <div class="div" style="margin:4px 0 12px;"></div>
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:14px;font-size:12px;color:var(--text2);">
           Enter the single crude source tag being harvested for this diamonds batch.
         </div>
@@ -2223,6 +2187,11 @@ function s3(c,a){
     } else {
       // All other downstream routes — multi-package
       c.innerHTML=`
+        <div class="row2">
+          <div class="fg"><label class="flabel">Date <span class="req">*</span></label><input id="f-date-ds3" class="fi" type="date" value="${draft.date}"></div>
+          <div class="fg"><label class="flabel">Tech <span class="req">*</span></label><input id="f-tech-ds3" class="fi" type="text" placeholder="Name" value="${draft.tech}"></div>
+        </div>
+        <div class="div" style="margin:4px 0 12px;"></div>
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--text2);">
           Scan each source package tag and enter the batch ID it came from plus the weight being used.
         </div>
@@ -2286,7 +2255,8 @@ function s3(c,a){
   const isDiamBtn=draft.route==='diamonds';
   const stage1Btn=ROUTES[draft.route]?.stage===1;
   const disabledAttr=(!isDiamBtn&&!stage1Btn&&draft.srcPkgs.length===0)?'disabled':'';
-  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${disabledAttr}>Continue →</button></div>`;
+  const dsBackBtn=!stage1Btn?`<button class="btn bg2" onclick="wStep=1;renderWiz()">← Back</button>`:'';
+  a.innerHTML=`<div class="btns"><button class="btn bp" onclick="next()" ${disabledAttr}>Continue →</button>${dsBackBtn}</div>`;
 }
 
 function onDiamTagInput(val){
@@ -2589,6 +2559,8 @@ function s5(c,a){
 /* Advance step with validation */
 function next(){
   if(wStep===1&&!draft.route){toast('Select a product type');return;}
+  // Downstream routes skip the batch-details step — jump straight to source packages
+  if(wStep===1&&ROUTES[draft.route]?.stage>1){wStep=2;}
   if(wStep===2){
     const stage=ROUTES[draft.route]?.stage||1;
     if(stage===1){
@@ -2622,6 +2594,15 @@ function next(){
     }
   }
   if(wStep===3){
+    // Capture date/tech for downstream routes (those skipped step 2)
+    const _ds3stage=ROUTES[draft.route]?.stage||1;
+    if(_ds3stage>1){
+      const dt3=document.getElementById('f-date-ds3')?.value;
+      const tch3=document.getElementById('f-tech-ds3')?.value.trim();
+      if(!tch3){toast('Enter tech name');return;}
+      draft.date=dt3||draft.date;draft.tech=tch3;
+      localStorage.setItem('hc_tech',tch3);
+    }
     if(draft.route==='diamonds'){
       const tag=document.getElementById('p-tag')?.value.trim();
       const wt=parseFloat(document.getElementById('p-wt')?.value)||0;
