@@ -362,8 +362,17 @@ select.fi option{background:#1a2420;}
 .ext-output-row{display:flex;align-items:center;gap:8px;}
 .ext-output-badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;background:rgba(76,175,80,0.12);color:var(--accent);border:1px solid rgba(76,175,80,0.24);}
 .ext-output-meta{font-family:var(--mono);font-size:11px;color:var(--text2);}
-.ext-start-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;padding:16px;}
+.ext-start-modal{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;display:none;align-items:flex-end;justify-content:center;}
 .ext-start-modal.vis{display:flex;}
+.ext-sheet{background:var(--bg3);border:1px solid var(--border2);border-top-left-radius:20px;border-top-right-radius:20px;width:100%;max-width:520px;padding-bottom:env(safe-area-inset-bottom,8px);}
+.ext-sheet-handle{display:flex;justify-content:center;padding:12px 0 6px;}
+.ext-sheet-handle span{width:36px;height:4px;background:var(--border2);border-radius:2px;display:block;}
+.ext-sheet-title{padding:4px 20px 16px;font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;}
+.ext-sheet-body{padding:0 20px;display:flex;flex-direction:column;gap:14px;}
+.ext-sheet-footer{padding:18px 20px 20px;display:flex;gap:10px;}
+.ext-avail-chip{font-size:10px;font-family:var(--mono);color:var(--accent);background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.2);border-radius:10px;padding:2px 8px;cursor:pointer;transition:background 0.12s;}
+.ext-avail-chip:hover{background:rgba(76,175,80,0.2);}
+.ext-notes-toggle{background:none;border:none;color:var(--text3);font-family:var(--mono);font-size:11px;letter-spacing:0.05em;cursor:pointer;padding:0;display:flex;align-items:center;gap:5px;}
 /* ── Notification system ── */
 .notif-badge-wrap{position:relative;}
 .notif-count{position:absolute;top:-5px;right:-5px;background:#ef5350;color:#fff;font-family:var(--mono);font-size:9px;font-weight:500;min-width:15px;height:15px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
@@ -641,50 +650,59 @@ select.fi option{background:#1a2420;}
 
 <!-- Extraction start modal -->
 <div class="ext-start-modal" id="ext-start-modal">
-  <div class="confirm-box" style="max-width:400px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:14px;">Start Extraction Run</div>
+  <div class="ext-sheet">
+    <div class="ext-sheet-handle"><span></span></div>
+    <div class="ext-sheet-title">Start Extraction Run</div>
 
-    <div class="fg" style="margin-bottom:12px;">
-      <label class="flabel">Source Tag</label>
-      <div style="display:flex;gap:8px;">
-        <input id="ext-src-tag" class="fi" style="flex:1;font-family:var(--mono);font-size:12px;letter-spacing:0.04em;" type="text" placeholder="Scan or enter METRC tag" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.toUpperCase();autoFillExtFromTag(this.value.trim())" onblur="autoFillExtFromTag(this.value.trim())">
-        <button onclick="scanExtSourceTag()" style="flex-shrink:0;width:42px;height:42px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="2" y="3" width="4" height="18" rx="1"/><rect x="8" y="3" width="2" height="18" rx="0.5"/><rect x="12" y="3" width="3" height="18" rx="0.5"/><rect x="17" y="3" width="5" height="18" rx="1"/></svg>
+    <div class="ext-sheet-body">
+      <!-- Source Tag -->
+      <div>
+        <div class="flabel">Source Tag</div>
+        <div style="display:flex;gap:8px;">
+          <input id="ext-src-tag" class="fi" style="flex:1;font-family:var(--mono);font-size:12px;letter-spacing:0.04em;" type="text" placeholder="Scan or enter METRC tag" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.toUpperCase();autoFillExtFromTag(this.value.trim())" onblur="autoFillExtFromTag(this.value.trim())">
+          <button onclick="scanExtSourceTag()" style="flex-shrink:0;width:46px;height:46px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="2" y="3" width="4" height="18" rx="1"/><rect x="8" y="3" width="2" height="18" rx="0.5"/><rect x="12" y="3" width="3" height="18" rx="0.5"/><rect x="17" y="3" width="5" height="18" rx="1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Strain + Weight side by side -->
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="flex:1;">
+          <div class="flabel">Strain</div>
+          <input id="ext-strain" class="fi" type="text" placeholder="Blue Dream" autocomplete="off" autocapitalize="words">
+        </div>
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+            <span class="flabel" style="margin:0;">Weight (g)</span>
+            <span class="ext-avail-chip" id="ext-bio-avail" hidden onclick="extUseAll()" title="Tap to use all"></span>
+          </div>
+          <input id="ext-input-weight" class="fi" type="number" min="0" step="0.1" placeholder="0.0" autocomplete="off" inputmode="decimal">
+        </div>
+      </div>
+
+      <!-- Run # -->
+      <div>
+        <div class="flabel">Run #</div>
+        <div style="display:flex;gap:8px;">
+          <button id="ext-run1-btn" class="btn bp" style="flex:1;" onclick="setExtRunNum(1)">Run 1</button>
+          <button id="ext-run2-btn" class="btn bg2" style="flex:1;" onclick="setExtRunNum(2)">Run 2</button>
+        </div>
+      </div>
+
+      <!-- Notes (collapsed) -->
+      <div>
+        <button class="ext-notes-toggle" id="ext-notes-toggle" onclick="toggleExtNotes()">
+          <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+          Add notes
         </button>
+        <input id="ext-notes" class="fi" type="text" placeholder="Optional notes" autocomplete="off" style="display:none;margin-top:8px;">
       </div>
     </div>
 
-    <div class="fg" style="margin-bottom:12px;">
-      <label class="flabel">Strain</label>
-      <input id="ext-strain" class="fi" type="text" placeholder="e.g. Blue Dream" autocomplete="off" autocapitalize="words">
-    </div>
-
-    <div class="fg" style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-        <label class="flabel" style="margin:0;">Input Weight (g) <span class="req">*</span></label>
-        <span class="bio-avail-hint" id="ext-bio-avail"></span>
-      </div>
-      <input id="ext-input-weight" class="fi" type="number" min="0" step="0.1" placeholder="e.g. 1500" autocomplete="off">
-      <button class="bio-use-all-btn" id="ext-use-all-btn" hidden onclick="extUseAll()">↑ Use all available weight</button>
-    </div>
-
-
-    <div class="fg" style="margin-bottom:16px;">
-      <label class="flabel">Run #</label>
-      <div style="display:flex;gap:8px;">
-        <button id="ext-run1-btn" class="btn bp" style="flex:1;" onclick="setExtRunNum(1)">Run 1</button>
-        <button id="ext-run2-btn" class="btn bg2" style="flex:1;" onclick="setExtRunNum(2)">Run 2</button>
-      </div>
-    </div>
-
-    <div class="fg" style="margin-bottom:16px;">
-      <label class="flabel">Notes (optional)</label>
-      <input id="ext-notes" class="fi" type="text" placeholder="Optional notes" autocomplete="off">
-    </div>
-
-    <div class="confirm-btns">
-      <button class="btn bg2" onclick="closeExtStartModal()">Cancel</button>
-      <button class="btn bp" id="ext-start-btn" onclick="startExtRun()">▶ Start</button>
+    <div class="ext-sheet-footer">
+      <button class="btn bg2" style="flex:0 0 88px;" onclick="closeExtStartModal()">Cancel</button>
+      <button class="btn bp" id="ext-start-btn" style="flex:1;padding:15px;font-size:15px;" onclick="startExtRun()">▶ Start Run</button>
     </div>
   </div>
 </div>
@@ -3114,9 +3132,12 @@ function openExtStartModal(){
   document.getElementById('ext-notes').value='';
   document.getElementById('ext-input-weight').value='';
   const availEl=document.getElementById('ext-bio-avail');
-  const useAllBtn=document.getElementById('ext-use-all-btn');
-  if(availEl) availEl.textContent='';
-  if(useAllBtn) useAllBtn.hidden=true;
+  if(availEl){availEl.textContent='';availEl.hidden=true;}
+  // Reset notes to collapsed
+  const notesInp=document.getElementById('ext-notes');
+  const notesBtn=document.getElementById('ext-notes-toggle');
+  if(notesInp) notesInp.style.display='none';
+  if(notesBtn) notesBtn.innerHTML='<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg> Add notes';
   document.getElementById('ext-start-modal').classList.add('vis');
   setTimeout(()=>document.getElementById('ext-src-tag')?.focus(),80);
 }
@@ -3130,17 +3151,16 @@ function autoFillExtFromTag(tag){
   // Auto-fill strain from biomass inventory if known
   const bio=bioInventory.find(b=>b.tag===tag.toUpperCase());
   if(bio&&bio.strain) document.getElementById('ext-strain').value=bio.strain;
-  // Show available weight hint
+  // Show tappable availability chip
   const availEl=document.getElementById('ext-bio-avail');
-  const useAllBtn=document.getElementById('ext-use-all-btn');
-  if(availEl&&useAllBtn){
+  if(availEl){
     const avail=bio&&(bio.currentWeight||0)>0?bio.currentWeight:0;
     if(avail>0){
-      availEl.textContent=`${avail.toFixed(1)}g available`;
-      useAllBtn.hidden=false;
+      availEl.textContent=`${avail.toFixed(1)}g ↑`;
+      availEl.hidden=false;
     } else {
       availEl.textContent='';
-      useAllBtn.hidden=true;
+      availEl.hidden=true;
     }
   }
 }
@@ -3151,6 +3171,17 @@ function extUseAll(){
   if(bio&&(bio.currentWeight||0)>0){
     document.getElementById('ext-input-weight').value=bio.currentWeight.toFixed(1);
   }
+}
+
+function toggleExtNotes(){
+  const inp=document.getElementById('ext-notes');
+  const btn=document.getElementById('ext-notes-toggle');
+  const open=inp.style.display==='none'||inp.style.display==='';
+  inp.style.display=open?'block':'none';
+  btn.innerHTML=open
+    ?'<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="8" x2="14" y2="8"/></svg> Hide notes'
+    :'<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg> Add notes';
+  if(open) setTimeout(()=>inp.focus(),60);
 }
 
 function scanExtSourceTag(){
