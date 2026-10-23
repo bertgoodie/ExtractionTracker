@@ -660,8 +660,12 @@ select.fi option{background:#1a2420;}
     </div>
 
     <div class="fg" style="margin-bottom:12px;">
-      <label class="flabel">Input Weight (g) <span class="req">*</span></label>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+        <label class="flabel" style="margin:0;">Input Weight (g) <span class="req">*</span></label>
+        <span class="bio-avail-hint" id="ext-bio-avail"></span>
+      </div>
       <input id="ext-input-weight" class="fi" type="number" min="0" step="0.1" placeholder="e.g. 1500" autocomplete="off">
+      <button class="bio-use-all-btn" id="ext-use-all-btn" hidden onclick="extUseAll()">↑ Use all available weight</button>
     </div>
 
 
@@ -3104,12 +3108,15 @@ function setExtRunNum(n){
 }
 
 function openExtStartModal(){
-  // Default run # — suggest 2 if the most recent batch for the last-used tag already has run 1
   setExtRunNum(1);
   document.getElementById('ext-src-tag').value='';
   document.getElementById('ext-strain').value='';
   document.getElementById('ext-notes').value='';
   document.getElementById('ext-input-weight').value='';
+  const availEl=document.getElementById('ext-bio-avail');
+  const useAllBtn=document.getElementById('ext-use-all-btn');
+  if(availEl) availEl.textContent='';
+  if(useAllBtn) useAllBtn.hidden=true;
   document.getElementById('ext-start-modal').classList.add('vis');
   setTimeout(()=>document.getElementById('ext-src-tag')?.focus(),80);
 }
@@ -3120,13 +3127,30 @@ function closeExtStartModal(){
 
 function autoFillExtFromTag(tag){
   if(!tag)return;
-  // Auto-suggest run # based on existing runs for this tag
-  const existingRuns=extRuns.filter(r=>r.sourceTag===tag&&r.endedAt);
-  const hasRun1=existingRuns.some(r=>(r.runNumber||1)===1);
-  setExtRunNum(hasRun1?2:1);
   // Auto-fill strain from biomass inventory if known
   const bio=bioInventory.find(b=>b.tag===tag.toUpperCase());
   if(bio&&bio.strain) document.getElementById('ext-strain').value=bio.strain;
+  // Show available weight hint
+  const availEl=document.getElementById('ext-bio-avail');
+  const useAllBtn=document.getElementById('ext-use-all-btn');
+  if(availEl&&useAllBtn){
+    const avail=bio&&(bio.currentWeight||0)>0?bio.currentWeight:0;
+    if(avail>0){
+      availEl.textContent=`${avail.toFixed(1)}g available`;
+      useAllBtn.hidden=false;
+    } else {
+      availEl.textContent='';
+      useAllBtn.hidden=true;
+    }
+  }
+}
+
+function extUseAll(){
+  const tag=document.getElementById('ext-src-tag').value.trim().toUpperCase();
+  const bio=bioInventory.find(b=>b.tag===tag);
+  if(bio&&(bio.currentWeight||0)>0){
+    document.getElementById('ext-input-weight').value=bio.currentWeight.toFixed(1);
+  }
 }
 
 function scanExtSourceTag(){
