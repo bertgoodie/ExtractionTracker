@@ -674,11 +674,12 @@ select.fi option{background:#1a2420;}
 
       <!-- Input Weight -->
       <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-          <span class="flabel" style="margin:0;">Input Weight (g) <span class="req">*</span></span>
-          <span class="ext-avail-chip" id="ext-bio-avail" hidden onclick="extUseAll()" title="Tap to use all"></span>
-        </div>
+        <div class="flabel">Input Weight (g) <span class="req">*</span></div>
         <input id="ext-input-weight" class="fi" type="number" min="0" step="0.1" placeholder="e.g. 1500" autocomplete="off" inputmode="decimal">
+        <div id="ext-avail-row" hidden style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:10px 12px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);">
+          <span style="font-family:var(--mono);font-size:12px;color:var(--text2);">Available: <span id="ext-bio-avail" style="color:var(--accent);font-weight:600;"></span></span>
+          <button onclick="extUseAll()" style="background:var(--accent);color:#0d1410;border:none;border-radius:6px;font-family:var(--sans);font-size:13px;font-weight:600;padding:6px 14px;cursor:pointer;">Use All</button>
+        </div>
       </div>
 
       <!-- Run # -->
@@ -3131,8 +3132,10 @@ function openExtStartModal(){
   document.getElementById('ext-strain').value='';
   document.getElementById('ext-notes').value='';
   document.getElementById('ext-input-weight').value='';
+  const availRow=document.getElementById('ext-avail-row');
   const availEl=document.getElementById('ext-bio-avail');
-  if(availEl){availEl.textContent='';availEl.hidden=true;}
+  if(availRow) availRow.hidden=true;
+  if(availEl) availEl.textContent='';
   // Reset notes to collapsed
   const notesInp=document.getElementById('ext-notes');
   const notesBtn=document.getElementById('ext-notes-toggle');
@@ -3151,16 +3154,17 @@ function autoFillExtFromTag(tag){
   // Auto-fill strain from biomass inventory if known
   const bio=bioInventory.find(b=>b.tag===tag.toUpperCase());
   if(bio&&bio.strain) document.getElementById('ext-strain').value=bio.strain;
-  // Show tappable availability chip
+  // Show availability row
+  const availRow=document.getElementById('ext-avail-row');
   const availEl=document.getElementById('ext-bio-avail');
-  if(availEl){
+  if(availRow&&availEl){
     const avail=bio&&(bio.currentWeight||0)>0?bio.currentWeight:0;
     if(avail>0){
-      availEl.textContent=`${avail.toFixed(1)}g ↑`;
-      availEl.hidden=false;
+      availEl.textContent=`${avail.toLocaleString(undefined,{maximumFractionDigits:1})}g`;
+      availRow.hidden=false;
     } else {
       availEl.textContent='';
-      availEl.hidden=true;
+      availRow.hidden=true;
     }
   }
 }
