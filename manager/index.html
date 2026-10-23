@@ -222,6 +222,18 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .bdown-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width 0.3s;}
 .bdown-val{font-family:var(--mono);font-size:11px;color:var(--text2);min-width:84px;text-align:right;white-space:nowrap;}
 .bdown-empty{padding:20px;text-align:center;font-size:12px;color:var(--text3);font-family:var(--mono);}
+.run-list-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:24px;}
+.run-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);}
+.run-row:last-child{border-bottom:none;}
+.run-info{flex:1;min-width:0;}
+.run-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.run-meta{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.run-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-family:var(--mono);letter-spacing:0.04em;margin-right:4px;}
+.run-badge-active{background:rgba(76,175,80,0.15);color:var(--accent);}
+.run-badge-done{background:var(--bg4);color:var(--text3);}
+.run-del{flex-shrink:0;background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:4px;display:flex;align-items:center;justify-content:center;transition:color 0.12s,background 0.12s;}
+.run-del:hover{color:var(--red);background:rgba(229,57,53,0.1);}
+.runs-list-empty{padding:20px;text-align:center;font-size:12px;color:var(--text3);font-family:var(--mono);}
 </style>
 </head>
 <body>
@@ -357,6 +369,13 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 
     <div class="sec-row"><span class="sec-heading">Tech Activity</span></div>
     <div id="tech-activity"><div class="breakdown-card"><div class="bdown-empty">Loading…</div></div></div>
+
+    <!-- Extraction Runs list -->
+    <div class="sec-row" style="margin-top:4px;">
+      <span class="sec-heading">Extraction Runs</span>
+      <span id="runs-list-count" style="font-size:11px;font-family:var(--mono);color:var(--text3);"></span>
+    </div>
+    <div id="runs-list"><div class="run-list-card"><div class="runs-list-empty">Loading…</div></div></div>
 
     <!-- Team management — live now -->
     <div class="sec-row">
@@ -590,6 +609,11 @@ function confirmRemove(uid, name){
 }
 function closeConfirm(){
   _pendingRemoveId = null;
+  _pendingDeleteRunId = null;
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.disabled = false;
+  btn.style.background = '';
+  btn.style.color = '';
   document.getElementById('confirm-overlay').classList.remove('open');
 }
 async function doRemoveUser(){
@@ -887,6 +911,7 @@ function refreshAnalytics(){
   renderBreakdown('strain-breakdown', groupBy(runs, r => r.strain||'Unknown'));
   renderBreakdown('mattype-breakdown', groupBy(runs, r => r.materialType||'Unspecified'));
   renderBreakdown('tech-activity', groupBy(runs, r => r.techName||'Unknown'));
+  renderRunsList();
 }
 
 function groupBy(runs, keyFn){
@@ -918,6 +943,78 @@ function renderKPIs(runs, pending){
   document.getElementById('kpi-grid').innerHTML = tiles.map(t =>
     `<div class="kpi-tile"><div class="kpi-label">${t.label}</div><div class="kpi-value ${t.cls}">${t.value}</div><div class="kpi-sub">${t.sub}</div></div>`
   ).join('');
+}
+
+function fmtTs(ms){
+  if(!ms) return '—';
+  const d = new Date(ms);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' +
+    d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+
+function renderRunsList(){
+  const start = getPeriodStart();
+  const runs = [...mgExtRuns]
+    .filter(r => (r.startedAt||0) >= start)
+    .sort((a,b) => (b.startedAt||0) - (a.startedAt||0));
+  const countEl = document.getElementById('runs-list-count');
+  if(countEl) countEl.textContent = runs.length ? `${runs.length} run${runs.length!==1?'s':''}` : '';
+  const el = document.getElementById('runs-list');
+  if(!el) return;
+  if(!runs.length){
+    el.innerHTML = '<div class="run-list-card"><div class="runs-list-empty">No runs for this period</div></div>';
+    return;
+  }
+  el.innerHTML = `<div class="run-list-card">${runs.map(r => {
+    const active = !r.endedAt;
+    const badge = active
+      ? '<span class="run-badge run-badge-active">ACTIVE</span>'
+      : '<span class="run-badge run-badge-done">DONE</span>';
+    const strain = r.strain || '—';
+    const mat = r.materialType ? ` · ${r.materialType}` : '';
+    const tech = r.techName || 'Unknown';
+    const ts = fmtTs(r.startedAt);
+    const dur = r.durationSec ? ` · ${fmtDurShort(r.durationSec)}` : (active ? ' · running' : '');
+    const out = r.outputWeight > 0 ? ` · ${r.outputWeight.toFixed(1)}g` : (r.outputTag ? ' · tagged' : '');
+    const label = `${strain}${mat} — Run #${r.runNumber||'?'} by ${tech}`;
+    return `<div class="run-row">
+      <div class="run-info">
+        <div class="run-title">${badge}${strain}${mat}</div>
+        <div class="run-meta">Run #${r.runNumber||'?'} · ${tech} · ${ts}${dur}${out}</div>
+      </div>
+      <button class="run-del" title="Delete run" onclick="confirmDeleteRun('${r.id}','${label.replace(/'/g,"\\'")}')">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      </button>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* ── Delete run confirm ── */
+let _pendingDeleteRunId = null;
+function confirmDeleteRun(runId, label){
+  _pendingDeleteRunId = runId;
+  document.getElementById('confirm-title').textContent = 'Delete this run?';
+  document.getElementById('confirm-body').textContent = `"${label}" will be permanently removed from Firestore. This cannot be undone.`;
+  document.getElementById('confirm-ok-btn').textContent = 'Delete';
+  document.getElementById('confirm-ok-btn').style.background = 'var(--red)';
+  document.getElementById('confirm-ok-btn').style.color = '#fff';
+  document.getElementById('confirm-ok-btn').onclick = doDeleteRun;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+async function doDeleteRun(){
+  if(!_pendingDeleteRunId) return;
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.textContent = 'Deleting…';
+  btn.disabled = true;
+  try {
+    await db.collection('extraction_runs').doc(_pendingDeleteRunId).delete();
+    _pendingDeleteRunId = null;
+    closeConfirm();
+  } catch(e) {
+    console.error('delete run error', e);
+    btn.textContent = 'Error — retry';
+    btn.disabled = false;
+  }
 }
 
 function renderBreakdown(elId, entries){
