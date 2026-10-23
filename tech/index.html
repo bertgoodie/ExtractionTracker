@@ -543,13 +543,13 @@ select.fi option{background:#1a2420;}
     </div>
     <div class="snav-item" id="ntab-biomass" onclick="goTo('biomass');closeSideNav()">
       <svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none;">
-        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z"/>
-        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(30,12,12)"/>
-        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(75,12,12)"/>
-        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(115,12,12)"/>
-        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(-30,12,12)"/>
-        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(-75,12,12)"/>
-        <path d="M12 12 Q9.5 7 12 2 Q14.5 7 12 12Z" transform="rotate(-115,12,12)"/>
+        <path d="M12 12 Q10.75 7 12 2 Q13.25 7 12 12Z"/>
+        <path d="M12 12 Q13.4 7.6 16.5 4.2 Q15.1 8.6 12 12Z"/>
+        <path d="M12 12 Q15.6 10 19.7 9.9 Q16.1 11.9 12 12Z"/>
+        <path d="M12 12 Q15.8 12.7 18.8 15.2 Q15 14.5 12 12Z"/>
+        <path d="M12 12 Q8.9 8.6 7.5 4.2 Q10.6 7.6 12 12Z"/>
+        <path d="M12 12 Q8.4 10 4.3 9.9 Q7.9 11.9 12 12Z"/>
+        <path d="M12 12 Q8.2 12.7 5.2 15.2 Q9 14.5 12 12Z"/>
       </svg>
       Biomass
     </div>
@@ -3439,8 +3439,8 @@ async function submitOutputTag(){
   if(!runs.length)return;
   runs.sort((a,b)=>(b.runNumber||1)-(a.runNumber||1));
   const lastRun=runs[0];
-  // Pull input weight from extraction run records (entered when run was started)
-  const inputWeight=runs.reduce((s,r)=>s+(parseFloat(r.inputWeight)||0),0);
+  // Pull input weight from this specific extraction run (not all runs — same tag may span weeks)
+  const inputWeight=parseFloat(lastRun.inputWeight)||0;
   const techName=currentUserData?.name||currentUser?.email||'';
   const btn=document.getElementById('otag-submit-btn');
   btn.disabled=true;
