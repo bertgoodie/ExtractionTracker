@@ -65,11 +65,10 @@ body{font-family:var(--sans);color:var(--text);font-size:14px;-webkit-font-smoot
 #hdr-ham{width:32px;height:32px;background:none;border:none;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;flex-shrink:0;padding:0;}
 #hdr-ham svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;}
 
-/* ── Floating FAB ── */
-#fab-float{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));width:56px;height:56px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(76,175,80,0.42);cursor:pointer;z-index:200;transition:transform 0.15s,opacity 0.2s;}
-#fab-float:active{transform:scale(0.9);}
-#fab-float svg{width:24px;height:24px;stroke:#0d1410;fill:none;stroke-width:2.2;}
-#fab-float.hidden{opacity:0;pointer-events:none;transform:scale(0.82);}
+/* ── New Batch nav button ── */
+.snav-new-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 16px;background:var(--accent);color:#0d1410;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:14px;transition:filter 0.12s;}
+.snav-new-btn:active{filter:brightness(0.88);}
+.snav-new-btn svg{width:18px;height:18px;stroke:#0d1410;fill:none;stroke-width:2.4;flex-shrink:0;}
 
 /* Type */
 .mono{font-family:var(--mono);}
@@ -523,6 +522,10 @@ select.fi option{background:#1a2420;}
     <span class="snav-hd-title">HC Extract</span>
   </div>
   <div class="snav-items">
+    <div class="snav-new-btn" onclick="startNewBatch();closeSideNav()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Batch
+    </div>
     <div class="snav-item act" id="ntab-dashboard" onclick="goTo('dashboard');closeSideNav()">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
       Dashboard
@@ -558,10 +561,6 @@ select.fi option{background:#1a2420;}
   </div>
 </div>
 
-<!-- ── Floating action button ── -->
-<div id="fab-float" onclick="startNewBatch()">
-  <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-</div>
 
 <!-- Complete notification -->
 <div id="complete-notice">
@@ -1181,7 +1180,6 @@ function goTo(screen){
   if(tabs[screen])document.getElementById(tabs[screen])?.classList.add('act');
   const back=document.getElementById('hdr-back');
   const ham=document.getElementById('hdr-ham');
-  const fab=document.getElementById('fab-float');
   const title=document.getElementById('hdr-title');
   const labels={
     dashboard:'HC Extract',history:'Batch History',
@@ -1195,11 +1193,9 @@ function goTo(screen){
   if(hasBack){
     back.classList.add('vis');
     if(ham)ham.style.display='none';
-    if(fab)fab.classList.add('hidden');
   } else {
     back.classList.remove('vis');
     if(ham)ham.style.display='';
-    if(fab)fab.classList.remove('hidden');
   }
   if(screen==='dashboard')renderDash();
   if(screen==='history')renderHistory();
@@ -1401,7 +1397,7 @@ function renderDash(){
   const active=batches.filter(b=>!isComplete(b));
   document.getElementById('dash-active').innerHTML=active.length
     ?active.slice(0,4).map(aCard).join('')+(active.length>4?`<button class="btn bg2" style="margin-top:4px;" onclick="goTo('active-log')">View all ${active.length} active batches</button>`:'')
-    :`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Tap + to start a run</div></div>`;
+    :`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Open the menu to start a new batch</div></div>`;
 
   const recent=batches.filter(b=>isComplete(b)).slice(0,4);
   document.getElementById('dash-recent').innerHTML=recent.length
@@ -1473,7 +1469,7 @@ function renderActiveLog(){
   const active=batches.filter(b=>!isComplete(b));
   const el=document.getElementById('active-log-content');
   if(!active.length){
-    el.innerHTML=`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Tap + to start a new run</div></div>`;
+    el.innerHTML=`<div class="empty"><div class="eicon">⚗️</div><div class="etitle">No active batches</div><div class="esub">Open the menu to start a new batch</div></div>`;
     return;
   }
   el.innerHTML=active.map(aCard).join('');
