@@ -66,7 +66,7 @@ body{font-family:var(--sans);color:var(--text);font-size:14px;-webkit-font-smoot
 #hdr-ham svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;}
 
 /* ── New Batch nav button ── */
-.snav-new-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 16px;background:var(--accent);color:#0d1410;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:14px;transition:filter 0.12s;}
+.snav-new-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 16px;background:var(--accent);color:#0d1410;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;transition:filter 0.12s;}
 .snav-new-btn:active{filter:brightness(0.88);}
 .snav-new-btn svg{width:18px;height:18px;stroke:#0d1410;fill:none;stroke-width:2.4;flex-shrink:0;}
 
@@ -525,16 +525,12 @@ select.fi option{background:#1a2420;}
     <span class="snav-hd-title">HC Extract</span>
   </div>
   <div class="snav-items">
-    <div class="snav-new-btn" onclick="startNewBatch();closeSideNav()">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New Batch
-    </div>
     <div class="snav-item act" id="ntab-dashboard" onclick="goTo('dashboard');closeSideNav()">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
       Dashboard
     </div>
     <div class="snav-item" id="ntab-extraction-log" onclick="goTo('extraction-log');closeSideNav()">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 C10 6 7 10 7 14 a5 5 0 0010 0 C17 10 14 6 12 3z"/><path d="M9.5 15.5 C9.5 14 10.5 13 12 13" stroke-width="1.2"/></svg>
       Extraction
     </div>
     <div class="snav-item" id="ntab-history" onclick="goTo('history');closeSideNav()">
@@ -550,6 +546,10 @@ select.fi option{background:#1a2420;}
       Biomass
     </div>
     <div class="snav-divider"></div>
+    <div class="snav-new-btn" onclick="startNewBatch();closeSideNav()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Batch
+    </div>
   </div>
   <div class="snav-footer">
     <div id="snav-email">—</div>
