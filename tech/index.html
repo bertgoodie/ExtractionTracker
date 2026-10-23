@@ -649,6 +649,11 @@ select.fi option{background:#1a2420;}
     </div>
 
     <div class="fg" style="margin-bottom:12px;">
+      <label class="flabel">Input Weight (g) <span class="req">*</span></label>
+      <input id="ext-input-weight" class="fi" type="number" min="0" step="0.1" placeholder="e.g. 1500" autocomplete="off">
+    </div>
+
+    <div class="fg" style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <label class="flabel" style="margin:0;">Material Type</label>
         <button id="ext-mat-manage-btn" onclick="openMatManager()" hidden style="background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--accent);cursor:pointer;padding:2px 0;letter-spacing:0.06em;">⚙ MANAGE</button>
@@ -3031,7 +3036,7 @@ function renderExtLog(){
         <span class="ext-run-timer" id="ext-timer-val">${fmtDuration(elapsed)}</span>
       </div>
       <div class="ext-run-strain">${active.strain||'—'}</div>
-      <div class="ext-run-tag">${tagShort(active.sourceTag)} · Started ${startedStr}</div>
+      <div class="ext-run-tag">${tagShort(active.sourceTag)} · Started ${startedStr}${active.inputWeight?` · ${active.inputWeight.toLocaleString()}g input`:''}</div>
       ${run1Done?`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:6px;">Run 1 recorded: ${fmtDuration(run1Done.durationSec)}</div>`:''}
       ${active.notes?`<div style="font-size:12px;color:var(--text2);margin-top:6px;">${active.notes}</div>`:''}
       ${isRun1?`
@@ -3051,6 +3056,33 @@ function renderExtLog(){
     </div>`;
   }
 
+  // ── Past runs ──
+  if(past.length>0){
+    html+=`<div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.07em;text-transform:uppercase;margin:16px 0 8px;">Recent Runs</div>`;
+    // Group by sourceTag, most recent first
+    const groups={};
+    past.forEach(r=>{const k=r.sourceTag||'—';if(!groups[k])groups[k]=[];groups[k].push(r);});
+    const sortedKeys=Object.keys(groups).sort((a,b)=>{
+      const mA=Math.max(...groups[a].map(r=>r.endedAt||0));
+      const mB=Math.max(...groups[b].map(r=>r.endedAt||0));
+      return mB-mA;
+    });
+    sortedKeys.forEach(key=>{
+      const runs=groups[key].sort((a,b)=>(a.runNumber||1)-(b.runNumber||1));
+      const first=runs[0];
+      const dateStr=first.startedAt?new Date(first.startedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
+      const weightStr=first.inputWeight?`${first.inputWeight.toLocaleString()}g`:'';
+      const techStr=first.techName||'';
+      const metaParts=[tagShort(key),dateStr,weightStr,techStr].filter(Boolean);
+      html+=`<div class="ext-history-card">
+        <div class="ext-hist-strain">${first.strain||'—'}</div>
+        <div class="ext-hist-meta">${metaParts.join(' · ')}</div>
+        <hr class="ext-hist-divider">
+        <div class="ext-hist-runs">${runs.map(r=>`Run ${r.runNumber||1}: ${fmtDuration(r.durationSec||0)}`).join('<br>')}</div>
+      </div>`;
+    });
+  }
+
   el.innerHTML=html;
 }
 
@@ -3066,6 +3098,7 @@ function openExtStartModal(){
   document.getElementById('ext-src-tag').value='';
   document.getElementById('ext-strain').value='';
   document.getElementById('ext-notes').value='';
+  document.getElementById('ext-input-weight').value='';
   buildMatDropdown();
   document.getElementById('ext-start-modal').classList.add('vis');
   setTimeout(()=>document.getElementById('ext-src-tag')?.focus(),80);
@@ -3110,8 +3143,11 @@ async function startExtRun(){
   const strain=document.getElementById('ext-strain').value.trim();
   const notes=document.getElementById('ext-notes').value.trim();
   const materialType=document.getElementById('ext-material')?.value||'';
+  const inputWeightRaw=parseFloat(document.getElementById('ext-input-weight')?.value);
+  const inputWeight=isNaN(inputWeightRaw)||inputWeightRaw<=0?null:inputWeightRaw;
   if(!sourceTag){toast('Scan or enter a source tag');return;}
   if(!strain){toast('Enter strain name');return;}
+  if(!inputWeight){toast('Enter input weight (g)');return;}
   if(extRuns.find(r=>!r.endedAt)){toast('An extraction is already in progress');closeExtStartModal();return;}
   const btn=document.getElementById('ext-start-btn');
   btn.disabled=true;
@@ -3121,6 +3157,7 @@ async function startExtRun(){
       sourceTag,
       strain,
       materialType,
+      inputWeight:inputWeight,
       runNumber:_extRunNum,
       notes:notes||'',
       techUid:currentUser?.uid||'',
