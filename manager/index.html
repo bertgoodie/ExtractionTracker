@@ -145,6 +145,9 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 /* ── Confirm dialog ── */
 #confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:600;display:none;align-items:center;justify-content:center;padding:20px;}
 #confirm-overlay.open{display:flex;}
+/* ── Add Biomass modal ── */
+#add-bio-modal{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:700;display:none;align-items:center;justify-content:center;padding:20px;}
+#add-bio-modal.open{display:flex;}
 
 /* ── Production settings ── */
 .settings-section{margin-bottom:28px;}
@@ -285,6 +288,22 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .run-del{flex-shrink:0;background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:4px;display:flex;align-items:center;justify-content:center;transition:color 0.12s,background 0.12s;}
 .run-del:hover{color:var(--red);background:rgba(229,57,53,0.1);}
 .runs-list-empty{padding:20px;text-align:center;font-size:12px;color:var(--text3);font-family:var(--mono);}
+/* ── Biomass inventory ── */
+.bio-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px;margin-bottom:8px;}
+.bio-card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
+.bio-card-info{flex:1;min-width:0;}
+.bio-tag-lbl{font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bio-meta{font-size:13px;font-weight:500;color:var(--text);}
+.bio-mat{font-size:11px;font-family:var(--mono);color:var(--text3);}
+.bio-weights{text-align:right;flex-shrink:0;margin-left:8px;}
+.bio-current{font-size:18px;font-family:var(--mono);font-weight:500;color:var(--accent);}
+.bio-current.depleted{color:var(--text3);}
+.bio-of{font-size:10px;font-family:var(--mono);color:var(--text3);}
+.bio-bar-bg{height:4px;background:var(--bg4);border-radius:2px;}
+.bio-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 0.3s;}
+.bio-bar-fill.depleted{background:var(--text3);}
+.bio-added{font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:6px;}
+.bio-empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;font-family:var(--mono);line-height:1.6;}
 </style>
 </head>
 <body>
@@ -367,6 +386,33 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   </div>
 </div>
 
+<!-- Add Biomass Tag modal -->
+<div id="add-bio-modal">
+  <div class="confirm-box" style="max-width:400px;width:100%;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;">Add Biomass Tag</div>
+    <div class="fg">
+      <label class="flabel">METRC Source Tag</label>
+      <input id="bio-tag-input" class="fi mono" type="text" placeholder="Enter tag" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.toUpperCase()" style="font-size:12px;letter-spacing:0.04em;">
+    </div>
+    <div class="fg">
+      <label class="flabel">Strain</label>
+      <input id="bio-strain-input" class="fi" type="text" placeholder="e.g. Blue Dream" autocomplete="off" autocapitalize="words">
+    </div>
+    <div class="fg">
+      <label class="flabel">Material Type</label>
+      <select id="bio-mattype-input" class="fi"></select>
+    </div>
+    <div class="fg" style="margin-bottom:16px;">
+      <label class="flabel">Weight (g) <span style="color:var(--red);">*</span></label>
+      <input id="bio-weight-input" class="fi" type="number" placeholder="0.0" step="0.1" min="0" inputmode="decimal">
+    </div>
+    <div class="confirm-btns">
+      <button class="btn btn-cancel" style="flex:1;" onclick="closeAddBioModal()">Cancel</button>
+      <button class="btn" style="flex:1;background:var(--accent);color:#fff;" id="bio-submit-btn" onclick="submitAddBio()">Add to Inventory</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm Remove Dialog -->
 <div id="confirm-overlay">
   <div class="confirm-box">
@@ -438,6 +484,11 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
       </div>
     </div>
 
+    <!-- ── Biomass screen ── -->
+    <div class="screen" id="screen-biomass">
+      <div id="biomass-screen-content"></div>
+    </div>
+
     <!-- ── Settings screen ── -->
     <div class="screen" id="screen-settings">
       <div class="sec-row" style="margin-bottom:16px;">
@@ -497,6 +548,10 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
     <div class="snav-item" id="ntab-team" onclick="goTo('team');closeSideNav()">
       <svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><path d="M16 3.13a4 4 0 010 7.75"/><path d="M21 21v-2a4 4 0 00-3-3.87"/></svg>
       Team
+    </div>
+    <div class="snav-item" id="ntab-biomass" onclick="goTo('biomass');closeSideNav()">
+      <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5.25-7 13-7 13S5 14.25 5 9a7 7 0 017-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      Biomass
     </div>
     <div class="snav-item" id="ntab-settings" onclick="goTo('settings');closeSideNav()">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -1058,6 +1113,7 @@ function goTo(name){
   const ntab = document.getElementById('ntab-' + name);
   if(ntab) ntab.classList.add('act');
   window.scrollTo({top:0,behavior:'instant'});
+  if(name==='biomass') renderBiomassScreen();
 }
 
 /* ── Analytics ── */
@@ -1232,6 +1288,132 @@ function renderBreakdown(elId, entries){
   ).join('')}</div>`;
 }
 
+/* ── Toast ── */
+function toast(msg,dur=2800){
+  let el=document.getElementById('mgr-toast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='mgr-toast';
+    el.style.cssText='position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 18px;border-radius:8px;z-index:9000;opacity:0;transition:opacity 0.2s,transform 0.2s;pointer-events:none;white-space:nowrap;';
+    document.body.appendChild(el);
+  }
+  el.textContent=msg;
+  el.style.opacity='1';
+  el.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(-50%) translateY(20px)';},dur);
+}
+
+/* ── Biomass Inventory ── */
+let bioInventory = [];
+let _bioUnsubscribe = null;
+
+function startBioListener(){
+  if(_bioUnsubscribe) _bioUnsubscribe();
+  _bioUnsubscribe = db.collection('biomass_inventory')
+    .where('facilityId','==',FACILITY_ID)
+    .onSnapshot(snap => {
+      bioInventory = snap.docs.map(d => ({id:d.id,...d.data()}));
+      const el = document.getElementById('biomass-screen-content');
+      if(el && document.getElementById('screen-biomass')?.classList.contains('active')) renderBiomassScreen();
+    }, err => console.error('biomass_inventory listener:', err));
+}
+
+function renderBiomassScreen(){
+  const el = document.getElementById('biomass-screen-content');
+  if(!el) return;
+  const active   = bioInventory.filter(b => b.status !== 'depleted').sort((a,b) => (b.addedAt||0)-(a.addedAt||0));
+  const depleted = bioInventory.filter(b => b.status === 'depleted').sort((a,b) => (b.addedAt||0)-(a.addedAt||0));
+  let html = `<div class="sec-row">
+    <span class="sec-heading">Biomass Inventory</span>
+    <button class="sec-action" onclick="openAddBioModal()">
+      <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Tag
+    </button>
+  </div>`;
+  if(!active.length && !depleted.length){
+    html += `<div class="bio-empty">No biomass tags yet.<br>Tap Add Tag to register a package.</div>`;
+  } else {
+    html += active.map(b => bioCardHtml(b)).join('');
+    if(depleted.length){
+      html += `<div class="sec-row" style="margin-top:16px;"><span class="sec-heading">Depleted</span></div>`;
+      html += depleted.map(b => bioCardHtml(b)).join('');
+    }
+  }
+  el.innerHTML = html;
+}
+
+function bioCardHtml(b){
+  const pct = b.originalWeight > 0 ? Math.max(0, Math.min(100, (b.currentWeight / b.originalWeight) * 100)) : 0;
+  const isDep = b.status === 'depleted';
+  const ts = b.addedAt ? new Date(b.addedAt).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
+  return `<div class="bio-card">
+    <div class="bio-card-top">
+      <div class="bio-card-info">
+        <div class="bio-meta">${b.strain||'Unknown'} <span class="bio-mat">${b.materialType||''}</span></div>
+        <div class="bio-tag-lbl">${b.tag||'—'}</div>
+      </div>
+      <div class="bio-weights">
+        <div class="bio-current${isDep?' depleted':''}">${b.currentWeight!=null?b.currentWeight.toFixed(1):'—'}g</div>
+        <div class="bio-of">of ${b.originalWeight!=null?b.originalWeight.toFixed(1):'—'}g</div>
+      </div>
+    </div>
+    <div class="bio-bar-bg"><div class="bio-bar-fill${isDep?' depleted':''}" style="width:${pct}%"></div></div>
+    ${ts ? `<div class="bio-added">Added ${ts}${b.addedByName?' · '+b.addedByName:''}</div>` : ''}
+  </div>`;
+}
+
+function getMgrMatTypes(){
+  try{
+    const s = JSON.parse(localStorage.getItem('hc_settings')||'{}');
+    if(Array.isArray(s.matTypes) && s.matTypes.length) return s.matTypes;
+  }catch(e){}
+  return ['Fresh Frozen','Cured Nug','Cured Trim'];
+}
+
+function openAddBioModal(){
+  document.getElementById('bio-tag-input').value   = '';
+  document.getElementById('bio-strain-input').value = '';
+  document.getElementById('bio-weight-input').value = '';
+  const sel = document.getElementById('bio-mattype-input');
+  const types = getMgrMatTypes();
+  sel.innerHTML = types.map(t => `<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
+  document.getElementById('add-bio-modal').classList.add('open');
+  setTimeout(() => document.getElementById('bio-tag-input')?.focus(), 80);
+}
+
+function closeAddBioModal(){
+  document.getElementById('add-bio-modal').classList.remove('open');
+}
+
+async function submitAddBio(){
+  const tag          = document.getElementById('bio-tag-input').value.trim().toUpperCase();
+  const strain       = document.getElementById('bio-strain-input').value.trim();
+  const materialType = document.getElementById('bio-mattype-input').value;
+  const weight       = parseFloat(document.getElementById('bio-weight-input').value) || 0;
+  if(!tag)    { toast('Scan or enter the METRC tag'); return; }
+  if(!weight) { toast('Enter the package weight');   return; }
+  const btn = document.getElementById('bio-submit-btn');
+  btn.disabled = true;
+  try{
+    await db.collection('biomass_inventory').add({
+      facilityId:FACILITY_ID,
+      tag, strain, materialType,
+      originalWeight: weight,
+      currentWeight:  weight,
+      addedByName: currentUserData?.name || currentUser?.email || '',
+      addedAt: Date.now(),
+      status: 'active'
+    });
+    closeAddBioModal();
+    toast(`✓ Tag added to inventory`);
+  }catch(e){
+    console.error('submitAddBio error:', e);
+    toast('⚠ Could not save — check connection');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
 /* ── Auth guard — manager role required ── */
 auth.onAuthStateChanged(async user => {
   if(!user){ window.location.href = '../'; return; }
@@ -1255,6 +1437,7 @@ auth.onAuthStateChanged(async user => {
   loadUsers();
   try{ startNotifListener(); }catch(e){ console.error('notif listener failed:', e); }
   try{ startExtRunsListener(); }catch(e){ console.error('extRuns listener failed:', e); }
+  try{ startBioListener(); }catch(e){ console.error('biomass_inventory listener failed:', e); }
 });
 </script>
 </body>
