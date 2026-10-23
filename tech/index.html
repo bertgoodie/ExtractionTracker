@@ -372,7 +372,7 @@ select.fi option{background:#1a2420;}
 .ext-sheet-footer{padding:18px 20px 20px;display:flex;gap:10px;}
 .ext-avail-chip{font-size:10px;font-family:var(--mono);color:var(--accent);background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.2);border-radius:10px;padding:2px 8px;cursor:pointer;transition:background 0.12s;}
 .ext-avail-chip:hover{background:rgba(76,175,80,0.2);}
-.ext-notes-toggle{background:none;border:none;color:var(--text3);font-family:var(--mono);font-size:11px;letter-spacing:0.05em;cursor:pointer;padding:0;display:flex;align-items:center;gap:5px;}
+.ext-notes-toggle{background:none;border:none;color:var(--text2);font-family:var(--sans);font-size:14px;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px;}
 /* ── Notification system ── */
 .notif-badge-wrap{position:relative;}
 .notif-count{position:absolute;top:-5px;right:-5px;background:#ef5350;color:#fff;font-family:var(--mono);font-size:9px;font-weight:500;min-width:15px;height:15px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);}
@@ -666,19 +666,19 @@ select.fi option{background:#1a2420;}
         </div>
       </div>
 
-      <!-- Strain + Weight side by side -->
-      <div style="display:flex;gap:10px;align-items:flex-start;">
-        <div style="flex:1;">
-          <div class="flabel">Strain</div>
-          <input id="ext-strain" class="fi" type="text" placeholder="Blue Dream" autocomplete="off" autocapitalize="words">
+      <!-- Strain -->
+      <div>
+        <div class="flabel">Strain</div>
+        <input id="ext-strain" class="fi" type="text" placeholder="e.g. Blue Dream" autocomplete="off" autocapitalize="words">
+      </div>
+
+      <!-- Input Weight -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <span class="flabel" style="margin:0;">Input Weight (g) <span class="req">*</span></span>
+          <span class="ext-avail-chip" id="ext-bio-avail" hidden onclick="extUseAll()" title="Tap to use all"></span>
         </div>
-        <div style="flex:1;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-            <span class="flabel" style="margin:0;">Weight (g)</span>
-            <span class="ext-avail-chip" id="ext-bio-avail" hidden onclick="extUseAll()" title="Tap to use all"></span>
-          </div>
-          <input id="ext-input-weight" class="fi" type="number" min="0" step="0.1" placeholder="0.0" autocomplete="off" inputmode="decimal">
-        </div>
+        <input id="ext-input-weight" class="fi" type="number" min="0" step="0.1" placeholder="e.g. 1500" autocomplete="off" inputmode="decimal">
       </div>
 
       <!-- Run # -->
