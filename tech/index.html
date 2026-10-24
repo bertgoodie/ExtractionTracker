@@ -3494,12 +3494,17 @@ async function submitOutputTag(){
   if(!outputTag){toast('Enter the output METRC tag');return;}
   if(!outputWeight){toast('Enter the output weight');return;}
   if(!batchId){toast('Enter a batch ID');return;}
-  const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt);
+  // Only consider runs that haven't been tagged yet; sort by most-recently ended (mirrors openOutputTagModal)
+  const runs=extRuns.filter(r=>r.sourceTag===sourceTag&&r.endedAt&&!r.outputTag);
   if(!runs.length)return;
-  runs.sort((a,b)=>(b.runNumber||1)-(a.runNumber||1));
+  runs.sort((a,b)=>(b.endedAt||0)-(a.endedAt||0));
   const lastRun=runs[0];
-  // Pull input weight from this specific extraction run (not all runs — same tag may span weeks)
-  const inputWeight=parseFloat(lastRun.inputWeight)||0;
+  // Fetch run fresh from Firestore so we always get the real stored inputWeight
+  let inputWeight=0;
+  try{
+    const runSnap=await db.collection('extraction_runs').doc(lastRun.id).get();
+    if(runSnap.exists) inputWeight=parseFloat(runSnap.data().inputWeight)||0;
+  }catch(e){ inputWeight=parseFloat(lastRun.inputWeight)||0; }
   const techName=currentUserData?.name||currentUser?.email||'';
   const btn=document.getElementById('otag-submit-btn');
   btn.disabled=true;
@@ -3507,7 +3512,6 @@ async function submitOutputTag(){
     // 1. Update extraction run with output tag
     await db.collection('extraction_runs').doc(lastRun.id).update({
       outputTag,
-      inputWeight,
       outputWeight,
       batchId,
       outputTagAssignedAt:Date.now(),
@@ -3529,7 +3533,6 @@ async function submitOutputTag(){
     // 2. Create crude batch record if one doesn't already exist for this batchId
     const existing=batches.find(b=>b.batchId===batchId||b.outTag===outputTag);
     if(!existing){
-      const totalIn=runs.reduce((s,r)=>s,0); // weight tracked via extraction runs
       const sc=strCode(lastRun.strain||'');
       const newBatch={
         id:uid(),
