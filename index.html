@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HC Extract</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg:#0d1410;--bg2:#141c16;--bg3:#1a2420;--bg4:#22302a;
+  --border:rgba(76,175,80,0.18);--border2:rgba(76,175,80,0.38);
+  --accent:#4caf50;--adim:rgba(76,175,80,0.13);
+  --text:#e0ede0;--text2:#8aaa8a;--text3:#4d6e4d;
+  --amber:#ffb74d;--red:#ef5350;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --r:8px;--rl:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;}
+body{display:flex;align-items:center;justify-content:center;padding:24px;min-height:100%;}
+
+.login-wrap{width:100%;max-width:340px;}
+
+/* Logo */
+.login-logo{width:52px;height:52px;background:var(--accent);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+.login-logo svg{width:28px;height:28px;fill:#0d1410;}
+.login-title{font-size:20px;font-weight:500;text-align:center;margin-bottom:4px;letter-spacing:-0.01em;}
+.login-sub{font-size:11px;color:var(--text3);text-align:center;margin-bottom:28px;font-family:var(--mono);letter-spacing:0.1em;text-transform:uppercase;}
+
+/* Card */
+.login-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:24px;}
+
+/* Form groups */
+.fg{margin-bottom:16px;}
+.flabel{display:block;font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;padding:10px 12px;outline:none;transition:border-color 0.15s;}
+.fi:focus{border-color:var(--accent);}
+.fi::placeholder{color:var(--text3);}
+
+/* Button */
+.btn-primary{width:100%;background:var(--accent);color:#0d1410;font-family:var(--sans);font-size:14px;font-weight:500;border:none;border-radius:var(--r);padding:12px;cursor:pointer;transition:opacity 0.15s;margin-top:4px;}
+.btn-primary:active{opacity:0.85;}
+.btn-primary:disabled{opacity:0.45;cursor:not-allowed;}
+
+/* Error */
+#login-error{font-size:12px;color:var(--red);text-align:center;min-height:18px;margin-bottom:12px;font-family:var(--mono);}
+
+/* Loading state */
+.spinner{width:20px;height:20px;border:2px solid rgba(76,175,80,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite;margin:0 auto;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Redirect message */
+#redirect-msg{text-align:center;padding:20px 0;}
+#redirect-msg .spinner{margin-bottom:12px;}
+#redirect-msg p{font-size:13px;color:var(--text2);font-family:var(--mono);}
+
+/* Version */
+.login-version{font-size:10px;color:var(--text3);font-family:var(--mono);text-align:center;margin-top:20px;letter-spacing:0.08em;}
+</style>
+</head>
+<body>
+
+<div class="login-wrap">
+
+  <div class="login-logo">
+    <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 5 7 8c0 4 5 12 5 12s5-8 5-12c0-3-2-6-5-6zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
+  </div>
+  <div class="login-title">HC Extract</div>
+  <div class="login-sub">Twisted Growers · HC Dept</div>
+
+  <!-- Login form -->
+  <div class="login-card" id="login-form-wrap">
+    <div id="login-error"></div>
+    <div class="fg">
+      <label class="flabel">Email</label>
+      <input class="fi" id="email" type="email" placeholder="you@example.com" autocomplete="username" autocapitalize="none">
+    </div>
+    <div class="fg" style="margin-bottom:20px;">
+      <label class="flabel">Password</label>
+      <input class="fi" id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">Sign In</button>
+  </div>
+
+  <!-- Redirect state (shown after successful auth) -->
+  <div class="login-card" id="redirect-msg" style="display:none;">
+    <div class="spinner"></div>
+    <p id="redirect-label">Signing in…</p>
+  </div>
+
+  <div class="login-version">HC Extract v8 · Phase 0</div>
+
+</div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAyjFEDxjsl26ryUmFF41e0VLs5Vhpx2EU",
+  authDomain:        "extractiontracker.firebaseapp.com",
+  projectId:         "extractiontracker",
+  storageBucket:     "extractiontracker.firebasestorage.app",
+  messagingSenderId: "735518638661",
+  appId:             "1:735518638661:web:cf646ede8943d4baffd92c"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+function showError(msg){
+  document.getElementById('login-error').textContent = msg;
+}
+function setLoading(on){
+  const btn = document.getElementById('login-btn');
+  btn.disabled = on;
+  btn.textContent = on ? 'Signing in…' : 'Sign In';
+}
+function showRedirect(label){
+  document.getElementById('login-form-wrap').style.display = 'none';
+  document.getElementById('redirect-msg').style.display   = 'block';
+  document.getElementById('redirect-label').textContent   = label;
+}
+
+async function redirectByRole(user){
+  let snap;
+  try { snap = await db.collection('users').doc(user.uid).get(); }
+  catch(e){ showError('Could not reach database. Check your connection.'); return; }
+
+  const data = snap.data();
+  if(!data){
+    await auth.signOut();
+    showError('Account not provisioned. Contact your administrator.');
+    document.getElementById('login-form-wrap').style.display = 'block';
+    document.getElementById('redirect-msg').style.display   = 'none';
+    return;
+  }
+
+  const base = location.pathname.replace(/\/?$/, '/');
+  if(data.role === 'manager'){
+    showRedirect('Opening manager view…');
+    window.location.href = base + 'manager/';
+  } else if(data.role === 'tech'){
+    showRedirect('Opening tech view…');
+    window.location.href = base + 'tech/';
+  } else {
+    await auth.signOut();
+    showError('Unknown role. Contact your administrator.');
+    document.getElementById('login-form-wrap').style.display = 'block';
+    document.getElementById('redirect-msg').style.display   = 'none';
+  }
+}
+
+async function doLogin(){
+  showError('');
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  if(!email || !password){ showError('Enter your email and password.'); return; }
+
+  setLoading(true);
+  try {
+    const cred = await auth.signInWithEmailAndPassword(email, password);
+    showRedirect('Signing in…');
+    await redirectByRole(cred.user);
+  } catch(e){
+    setLoading(false);
+    switch(e.code){
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        showError('Incorrect email or password.'); break;
+      case 'auth/too-many-requests':
+        showError('Too many attempts. Try again later.'); break;
+      case 'auth/network-request-failed':
+        showError('Network error. Check your connection.'); break;
+      default:
+        showError('Sign-in failed. Try again.');
+    }
+  }
+}
+
+// Keyboard submit
+document.addEventListener('keydown', e => {
+  if(e.key === 'Enter') doLogin();
+});
+
+// If user is already signed in, redirect immediately
+auth.onAuthStateChanged(user => {
+  if(user){
+    showRedirect('Signing in…');
+    redirectByRole(user);
+  }
+});
+</script>
+</body>
+</html>
